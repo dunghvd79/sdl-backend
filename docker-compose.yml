@@ -1,0 +1,19 @@
+services:
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: sdl_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: sdl_user
+      POSTGRES_PASSWORD: sdl_password_123
+      POSTGRES_DB: sdl_db
+    ports:
+      - "5432:5432"
+    volumes:
+      # Ánh xạ data để không bị mất dữ liệu khi tắt container
+      - pgdata:/var/lib/postgresql/data
+      # Trick hay: Docker sẽ tự động chạy các file .sql trong thư mục này khi khởi tạo lần đầu!
+      - ./database:/docker-entrypoint-initdb.d/
+
+volumes:
+  pgdata:
