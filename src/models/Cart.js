@@ -26,7 +26,7 @@ class Cart {
       LEFT JOIN cart_items ci ON c.id = ci.cart_id
       LEFT JOIN books b ON ci.book_id = b.id
       WHERE c.user_id = $1
-      GROUP BY c.id
+      GROUP BY c.id, c.user_id, c.created_at
     `;
 
         const result = await pool.query(query, [userId]);
