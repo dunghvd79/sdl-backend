@@ -46,7 +46,7 @@ class Order {
       LEFT JOIN order_items oi ON o.id = oi.order_id
       LEFT JOIN books b ON oi.book_id = b.id
       WHERE o.user_id = $1
-      GROUP BY o.id, o.user_id, o.total_amount, o.status, o.shipping_name, o.shipping_phone, o.shipping_address, o.shipping_notes, o.payment_method, o.coupon_id, o.discount_amount, o.created_at
+      GROUP BY o.id, o.user_id, o.total_amount, o.status, o.shipping_name, o.shipping_phone, o.shipping_address, o.shipping_notes, o.payment_method, o.coupon_id, o.discount_amount, o.created_at, o.updated_at
       ORDER BY o.created_at DESC
     `;
         const result = await pool.query(query, [userId]);
@@ -75,7 +75,7 @@ class Order {
       LEFT JOIN books b ON oi.book_id = b.id
       LEFT JOIN coupons c ON o.coupon_id = c.id
       WHERE o.id = $1
-      GROUP BY o.id, o.user_id, o.total_amount, o.status, o.shipping_name, o.shipping_phone, o.shipping_address, o.shipping_notes, o.payment_method, o.coupon_id, o.discount_amount, o.created_at, u.full_name, u.email, c.code
+      GROUP BY o.id, o.user_id, o.total_amount, o.status, o.shipping_name, o.shipping_phone, o.shipping_address, o.shipping_notes, o.payment_method, o.coupon_id, o.discount_amount, o.created_at, o.updated_at, u.full_name, u.email, c.code
     `;
         const result = await pool.query(query, [orderId]);
         return result.rows[0] || null;
