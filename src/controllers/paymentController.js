@@ -195,7 +195,7 @@ class PaymentController {
                 </div>
                 <script>
                     function processMock() {
-                        window.location.href = `${FRONTEND_URL}/payment-result?status=success`;
+                        window.location.href = '${FRONTEND_URL}/payment-result?status=success';
                     }
                 </script>
             </body>
