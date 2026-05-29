@@ -59,7 +59,7 @@ class AiController {
                 );
 
                 // 3. Lưu câu trả lời từ AI
-                const aiAnswerText = result.answer || result.content || (typeof result === 'string' ? result : 'Tôi đã tiếp nhận câu hỏi nhưng không tìm thấy câu trả lời phù hợp.');
+                const aiAnswerText = result.answer || result.content || (result.error ? `Lỗi dịch vụ AI: ${result.error}` : (typeof result === 'string' ? result : 'Tôi đã tiếp nhận câu hỏi nhưng không tìm thấy câu trả lời phù hợp.'));
                 await pool.query(
                     'INSERT INTO messages (session_id, sender, content, created_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)',
                     [sessionId, 'AI', aiAnswerText.trim()]
