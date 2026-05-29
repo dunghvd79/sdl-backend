@@ -1,6 +1,8 @@
 const PaymentService = require('../services/paymentService');
 const Order = require('../models/Order');
 
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
 class PaymentController {
     // GET /api/payments/url/:orderId
     static async getPaymentUrl(req, res) {
@@ -40,20 +42,20 @@ class PaymentController {
 
             if (cancel === 'true' || status === 'CANCELLED') {
                 console.log(`Payment cancelled for PayOS link ID: ${id}`);
-                return res.redirect('http://localhost:5173/payment-result?status=fail');
+                return res.redirect(`${FRONTEND_URL}/payment-result?status=fail`);
             }
 
             // Xác thực giao dịch chính thức từ PayOS
             const result = await PaymentService.verifyAndProcessPayOSPayment(id);
 
             if (result.success) {
-                res.redirect('http://localhost:5173/payment-result?status=success');
+                res.redirect(`${FRONTEND_URL}/payment-result?status=success`);
             } else {
-                res.redirect('http://localhost:5173/payment-result?status=fail');
+                res.redirect(`${FRONTEND_URL}/payment-result?status=fail`);
             }
         } catch (err) {
             console.error('❌ Lỗi xử lý PayOS Return:', err.message);
-            res.redirect('http://localhost:5173/payment-result?status=fail');
+            res.redirect(`${FRONTEND_URL}/payment-result?status=fail`);
         }
     }
 
@@ -62,10 +64,10 @@ class PaymentController {
         try {
             const { id } = req.query;
             console.log(`PayOS Payment cancelled by user. Link ID: ${id}`);
-            res.redirect('http://localhost:5173/payment-result?status=fail');
+            res.redirect(`${FRONTEND_URL}/payment-result?status=fail`);
         } catch (err) {
             console.error('❌ Lỗi xử lý PayOS Cancel:', err.message);
-            res.redirect('http://localhost:5173/payment-result?status=fail');
+            res.redirect(`${FRONTEND_URL}/payment-result?status=fail`);
         }
     }
 
@@ -101,20 +103,20 @@ class PaymentController {
             const isValidSignature = PaymentService.verifyVNPaySignature(vnp_Params);
             if (!isValidSignature) {
                 console.error('❌ Chữ ký bảo mật VNPay không hợp lệ!');
-                return res.redirect('http://localhost:5173/payment-result?status=fail');
+                return res.redirect(`${FRONTEND_URL}/payment-result?status=fail`);
             }
 
             // 2. Xử lý lưu kết quả thanh toán vào CSDL
             const result = await PaymentService.processVNPayResult(vnp_Params);
 
             if (result.success) {
-                res.redirect('http://localhost:5173/payment-result?status=success');
+                res.redirect(`${FRONTEND_URL}/payment-result?status=success`);
             } else {
-                res.redirect('http://localhost:5173/payment-result?status=fail');
+                res.redirect(`${FRONTEND_URL}/payment-result?status=fail`);
             }
         } catch (err) {
             console.error('❌ Lỗi xử lý VNPay Return:', err.message);
-            res.redirect('http://localhost:5173/payment-result?status=fail');
+            res.redirect(`${FRONTEND_URL}/payment-result?status=fail`);
         }
     }
 
@@ -193,7 +195,7 @@ class PaymentController {
                 </div>
                 <script>
                     function processMock() {
-                        window.location.href = 'http://localhost:5173/payment-result?status=success';
+                        window.location.href = `${FRONTEND_URL}/payment-result?status=success`;
                     }
                 </script>
             </body>

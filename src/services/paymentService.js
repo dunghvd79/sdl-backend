@@ -73,8 +73,9 @@ class PaymentService {
         }
 
         // URL phản hồi
-        const returnUrl = 'http://localhost:3000/api/payments/payos_return';
-        const cancelUrl = 'http://localhost:3000/api/payments/payos_cancel';
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+        const returnUrl = `${backendUrl}/api/payments/payos_return`;
+        const cancelUrl = `${backendUrl}/api/payments/payos_cancel`;
 
         const paymentData = {
             orderCode: orderCode,
