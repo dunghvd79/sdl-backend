@@ -17,7 +17,8 @@ class Cart {
                 'id', b.id,
                 'title', b.title,
                 'author', b.author,
-                'price', b.price
+                'price', b.price,
+                'cover_url', b.cover_url
               )
             )
           ) FILTER (WHERE ci.id IS NOT NULL), '[]'
