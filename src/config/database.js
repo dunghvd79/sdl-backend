@@ -31,6 +31,27 @@ pool.query('SELECT NOW()', async (err, res) => {
                 console.error('❌ Migration gặp lỗi:', migErr.message);
             }
         }
+
+        // Tự động kiểm tra cấu trúc bảng orders và cập nhật các dòng có created_at bị NULL về thời gian hiện tại
+        try {
+            const colsRes = await pool.query(`
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'orders'
+            `);
+            console.log('📊 Cấu trúc bảng orders (các cột):', colsRes.rows.map(r => r.column_name).join(', '));
+
+            const updateRes = await pool.query(`
+                UPDATE orders 
+                SET created_at = CURRENT_TIMESTAMP 
+                WHERE created_at IS NULL
+            `);
+            if (updateRes.rowCount > 0) {
+                console.log(`✅ Migration: Đã tự động cập nhật ngày đặt hàng cho ${updateRes.rowCount} đơn hàng có created_at bị NULL.`);
+            }
+        } catch (orderErr) {
+            console.error('❌ Lỗi kiểm tra/cập nhật bảng orders:', orderErr.message);
+        }
     }
 });
 
