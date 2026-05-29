@@ -40,12 +40,15 @@ class Book {
       SELECT b.*, 
              COALESCE(i.available_qty, 0) as available_qty,
              COALESCE(i.reserved_qty, 0) as reserved_qty,
-             -- Gom các danh mục của sách này thành một mảng JSON
-             COALESCE(json_agg(json_build_object('id', c.id, 'name', c.name)) FILTER (WHERE c.id IS NOT NULL), '[]') as categories
+             -- Gom các danh mục của sách này thành một mảng JSON dùng subquery để tránh lỗi GROUP BY của PostgreSQL
+             (
+                 SELECT COALESCE(json_agg(json_build_object('id', cat.id, 'name', cat.name)), '[]')
+                 FROM book_categories bcat
+                 JOIN categories cat ON bcat.category_id = cat.id
+                 WHERE bcat.book_id = b.id
+             ) as categories
       FROM books b
       LEFT JOIN inventory i ON b.id = i.book_id
-      LEFT JOIN book_categories bc ON b.id = bc.book_id
-      LEFT JOIN categories c ON bc.category_id = c.id
     `;
 
         const params = [];
@@ -84,8 +87,6 @@ class Book {
         if (whereConditions.length > 0) {
             query += ` WHERE ${whereConditions.join(' AND ')}`;
         }
-
-        query += ` GROUP BY b.id, i.available_qty, i.reserved_qty`;
 
         // Sắp xếp
         if (sortBy === 'oldest') {
