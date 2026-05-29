@@ -35,7 +35,7 @@ class AdminController {
 
             if (date) {
                 params.push(date);
-                conditions.push(`DATE(o.created_at) = $${params.length}`);
+                conditions.push(`DATE(o.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') = $${params.length}`);
             }
 
             if (conditions.length > 0) {
