@@ -42,7 +42,7 @@ class AdminController {
                 query += ` WHERE ` + conditions.join(' AND ');
             }
 
-            query += ` GROUP BY o.id, u.email, u.full_name, o.shipping_name, o.shipping_phone, o.shipping_address, o.shipping_notes, o.payment_method, o.discount_amount, c.code`;
+            query += ` GROUP BY o.id, o.total_amount, o.status, o.created_at, o.payment_method, o.shipping_name, o.shipping_phone, o.shipping_address, o.shipping_notes, o.discount_amount, c.code, u.email, u.full_name`;
             query += ` ORDER BY o.created_at DESC`;
             
             params.push(limit, offset);
