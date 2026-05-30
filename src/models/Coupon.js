@@ -30,8 +30,8 @@ class Coupon {
     // Tạo coupon mới (Admin)
     static async create({ code, discount_type, discount_value, min_order_amount, max_discount_amount, start_date, end_date, usage_limit }) {
         const query = `
-            INSERT INTO coupons (code, discount_type, discount_value, min_order_amount, max_discount_amount, start_date, end_date, usage_limit)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO coupons (code, discount_type, discount_value, min_order_amount, max_discount_amount, start_date, end_date, usage_limit, used_count)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0)
             RETURNING *
         `;
         const result = await pool.query(query, [
@@ -123,7 +123,7 @@ class Coupon {
                        (CASE WHEN uc.user_id IS NOT NULL THEN true ELSE false END) as is_used
                 FROM coupons c
                 LEFT JOIN user_coupons uc ON uc.coupon_id = c.id AND uc.user_id = $1
-                WHERE c.is_active = true AND c.end_date >= NOW() AND c.used_count < c.usage_limit
+                WHERE c.is_active = true AND c.end_date >= NOW() AND COALESCE(c.used_count, 0) < c.usage_limit
                 ORDER BY c.created_at DESC
             `;
             params = [userId];
@@ -133,7 +133,7 @@ class Coupon {
                        c.max_discount_amount, c.start_date, c.end_date, c.usage_limit, c.used_count,
                        false as is_used
                 FROM coupons c
-                WHERE c.is_active = true AND c.end_date >= NOW() AND c.used_count < c.usage_limit
+                WHERE c.is_active = true AND c.end_date >= NOW() AND COALESCE(c.used_count, 0) < c.usage_limit
                 ORDER BY c.created_at DESC
             `;
         }
