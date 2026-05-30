@@ -46,8 +46,13 @@ pool.query('SELECT NOW()', async (err, res) => {
                 SET created_at = CURRENT_TIMESTAMP 
                 WHERE created_at IS NULL
             `);
-            if (updateRes.rowCount > 0) {
-                console.log(`✅ Migration: Đã tự động cập nhật ngày đặt hàng cho ${updateRes.rowCount} đơn hàng có created_at bị NULL.`);
+            const updateRes2 = await pool.query(`
+                UPDATE orders 
+                SET updated_at = CURRENT_TIMESTAMP 
+                WHERE updated_at IS NULL
+            `);
+            if (updateRes.rowCount > 0 || updateRes2.rowCount > 0) {
+                console.log(`✅ Migration: Đã tự động cập nhật timestamps cho đơn hàng bị NULL (created_at: ${updateRes.rowCount}, updated_at: ${updateRes2.rowCount}).`);
             }
         } catch (orderErr) {
             console.error('❌ Lỗi kiểm tra/cập nhật bảng orders:', orderErr.message);

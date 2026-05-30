@@ -4,8 +4,8 @@ class Order {
     // 1. Tạo đơn hàng mới (Chỉ tạo tờ hóa đơn tổng)
     static async create(client, userId, totalAmount, shippingName, shippingPhone, shippingAddress, shippingNotes, paymentMethod = 'ONLINE', couponId = null, discountAmount = 0) {
         const query = `
-      INSERT INTO orders (user_id, total_amount, status, shipping_name, shipping_phone, shipping_address, shipping_notes, payment_method, coupon_id, discount_amount)
-      VALUES ($1, $2, 'PENDING', $3, $4, $5, $6, $7, $8, $9)
+      INSERT INTO orders (user_id, total_amount, status, shipping_name, shipping_phone, shipping_address, shipping_notes, payment_method, coupon_id, discount_amount, created_at, updated_at)
+      VALUES ($1, $2, 'PENDING', $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING *
     `;
         const params = [userId, totalAmount, shippingName, shippingPhone, shippingAddress, shippingNotes, paymentMethod, couponId, discountAmount];
