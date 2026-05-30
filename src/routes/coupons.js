@@ -7,6 +7,17 @@ const router = express.Router();
 // ─── PUBLIC / CUSTOMER: Xem danh sách mã giảm giá đang hoạt động ────────────
 router.get('/active', optionalVerifyToken, CouponController.getActiveCoupons);
 
+// Debug API
+router.get('/debug-all', async (req, res) => {
+    try {
+        const pool = require('../config/database');
+        const dbRes = await pool.query('SELECT id, code, is_active, end_date, start_date, used_count, usage_limit, NOW() as db_now FROM coupons');
+        res.json({ data: dbRes.rows });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Các API bên dưới bắt buộc phải đăng nhập hoàn toàn
 router.use(verifyToken);
 
