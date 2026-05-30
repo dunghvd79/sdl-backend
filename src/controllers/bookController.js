@@ -115,7 +115,7 @@ class BookController {
     // POST /api/books (Chỉ Admin/Curator)
     static async createBook(req, res) {
         try {
-            const { title, author, isbn, description, price, categories, cover_url, status, is_featured, display_order } = req.body;
+            const { title, author, isbn, description, price, categories, cover_url, status, is_featured, is_bestseller, display_order } = req.body;
 
             const validationError = validateBookInput({ title, author, isbn, description, price, status });
             if (validationError) {
@@ -124,7 +124,7 @@ class BookController {
 
             // Tạo sách và truyền mảng ID danh mục (nếu có)
             const book = await BookService.createBook(
-                { title, author, isbn, description, price: Number(price), cover_url, status: status || 'PUBLISHED', is_featured: !!is_featured, display_order: parseInt(display_order) || 0 },
+                { title, author, isbn, description, price: Number(price), cover_url, status: status || 'PUBLISHED', is_featured: !!is_featured, is_bestseller: !!is_bestseller, display_order: parseInt(display_order) || 0 },
                 categories
             );
 
@@ -155,7 +155,7 @@ class BookController {
     static async updateBook(req, res) {
         try {
             const { id } = req.params;
-            const { title, author, isbn, description, price, categories, cover_url, status, is_featured, display_order } = req.body;
+            const { title, author, isbn, description, price, categories, cover_url, status, is_featured, is_bestseller, display_order } = req.body;
 
             const validationError = validateBookInput({ title, author, isbn, description, price, status });
             if (validationError) {
@@ -165,11 +165,11 @@ class BookController {
             const pool = require('../config/database');
             const query = `
                 UPDATE books
-                SET title = $1, author = $2, isbn = $3, description = $4, price = $5, cover_url = $6, status = $7, is_featured = $8, display_order = $9
-                WHERE id = $10
+                SET title = $1, author = $2, isbn = $3, description = $4, price = $5, cover_url = $6, status = $7, is_featured = $8, is_bestseller = $9, display_order = $10
+                WHERE id = $11
                 RETURNING *
             `;
-            const result = await pool.query(query, [title, author, isbn || null, description || null, Number(price), cover_url || null, status || 'PUBLISHED', !!is_featured, parseInt(display_order) || 0, id]);
+            const result = await pool.query(query, [title, author, isbn || null, description || null, Number(price), cover_url || null, status || 'PUBLISHED', !!is_featured, !!is_bestseller, parseInt(display_order) || 0, id]);
 
             if (result.rowCount === 0) {
                 return res.status(404).json({ error: 'Không tìm thấy cuốn sách này!' });

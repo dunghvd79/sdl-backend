@@ -3,14 +3,14 @@ const pool = require('../config/database');
 class Book {
     // 1. Thêm sách mới
     static async create(bookData) {
-        const { title, author, isbn, description, price, cover_url, status = 'PUBLISHED', is_featured = false, display_order = 0 } = bookData;
+        const { title, author, isbn, description, price, cover_url, status = 'PUBLISHED', is_featured = false, is_bestseller = false, display_order = 0 } = bookData;
 
         const query = `
-      INSERT INTO books (title, author, isbn, description, price, cover_url, status, is_featured, display_order)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      INSERT INTO books (title, author, isbn, description, price, cover_url, status, is_featured, is_bestseller, display_order)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `;
-        const result = await pool.query(query, [title, author, isbn, description, price, cover_url || null, status, is_featured, display_order]);
+        const result = await pool.query(query, [title, author, isbn, description, price, cover_url || null, status, is_featured, is_bestseller, display_order]);
         return result.rows[0];
     }
 

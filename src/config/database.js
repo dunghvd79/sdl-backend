@@ -48,6 +48,13 @@ pool.query('SELECT NOW()', async (err, res) => {
             `);
             console.log('✅ Migration: Đã kiểm tra/thêm cột cancel_reason vào bảng orders.');
 
+            // Tự động kiểm tra/thêm cột is_bestseller vào bảng books nếu chưa có
+            await pool.query(`
+                ALTER TABLE books 
+                ADD COLUMN IF NOT EXISTS is_bestseller BOOLEAN DEFAULT FALSE;
+            `);
+            console.log('✅ Migration: Đã kiểm tra/thêm cột is_bestseller vào bảng books.');
+
             const updateRes = await pool.query(`
                 UPDATE orders 
                 SET created_at = CURRENT_TIMESTAMP 
