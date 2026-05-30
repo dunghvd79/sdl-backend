@@ -15,7 +15,7 @@ class AdminController {
             let query = `
                 SELECT o.id, o.total_amount, o.status, o.created_at, o.payment_method,
                        o.shipping_name, o.shipping_phone, o.shipping_address, o.shipping_notes,
-                       o.discount_amount, c.code as coupon_code,
+                       o.discount_amount, o.cancel_reason, c.code as coupon_code,
                        u.email, u.full_name,
                        json_agg(json_build_object('title', b.title, 'quantity', oi.quantity, 'price', oi.price)) as items
                 FROM orders o
@@ -42,7 +42,7 @@ class AdminController {
                 query += ` WHERE ` + conditions.join(' AND ');
             }
 
-            query += ` GROUP BY o.id, o.total_amount, o.status, o.created_at, o.payment_method, o.shipping_name, o.shipping_phone, o.shipping_address, o.shipping_notes, o.discount_amount, c.code, u.email, u.full_name`;
+            query += ` GROUP BY o.id, o.total_amount, o.status, o.created_at, o.payment_method, o.shipping_name, o.shipping_phone, o.shipping_address, o.shipping_notes, o.discount_amount, o.cancel_reason, c.code, u.email, u.full_name`;
             query += ` ORDER BY o.created_at DESC`;
             
             params.push(limit, offset);
