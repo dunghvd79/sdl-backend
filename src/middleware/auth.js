@@ -52,7 +52,29 @@ const requireRole = (roles) => {
     };
 };
 
+// Middleware 1.5: Giải mã Token tùy chọn (dành cho các trang công khai nhưng muốn kiểm tra danh tính user nếu đã login)
+const optionalVerifyToken = async (req, res, next) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            const decoded = AuthService.verifyToken(token);
+            if (decoded) {
+                const dbUser = await User.findById(decoded.id);
+                if (dbUser && dbUser.is_active !== false) {
+                    req.user = decoded;
+                }
+            }
+        }
+        next();
+    } catch (err) {
+        // Có lỗi giải mã vẫn tiếp tục làm khách vãng lai
+        next();
+    }
+};
+
 module.exports = {
     verifyToken,
+    optionalVerifyToken,
     requireRole
 };

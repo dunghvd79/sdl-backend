@@ -177,6 +177,20 @@ class CouponController {
             res.status(500).json({ error: error.message });
         }
     }
+
+    // ==========================================
+    // CUSTOMER: Get active coupons list (Public / Customer)
+    // GET /api/coupons/active
+    // ==========================================
+    static async getActiveCoupons(req, res) {
+        try {
+            const userId = req.user ? req.user.id : null;
+            const coupons = await Coupon.getActive(userId);
+            res.status(200).json({ data: coupons });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
 }
 
 module.exports = CouponController;

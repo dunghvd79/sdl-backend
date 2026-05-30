@@ -111,6 +111,35 @@ class Coupon {
             await pool.query(query, [couponId]);
         }
     }
+
+    // Lấy danh sách coupon đang hoạt động (Public / Customer)
+    static async getActive(userId = null) {
+        let query;
+        let params = [];
+        if (userId) {
+            query = `
+                SELECT c.id, c.code, c.discount_type, c.discount_value, c.min_order_amount, 
+                       c.max_discount_amount, c.start_date, c.end_date, c.usage_limit, c.used_count,
+                       (CASE WHEN uc.user_id IS NOT NULL THEN true ELSE false END) as is_used
+                FROM coupons c
+                LEFT JOIN user_coupons uc ON uc.coupon_id = c.id AND uc.user_id = $1
+                WHERE c.is_active = true AND c.end_date >= NOW() AND c.used_count < c.usage_limit
+                ORDER BY c.created_at DESC
+            `;
+            params = [userId];
+        } else {
+            query = `
+                SELECT c.id, c.code, c.discount_type, c.discount_value, c.min_order_amount, 
+                       c.max_discount_amount, c.start_date, c.end_date, c.usage_limit, c.used_count,
+                       false as is_used
+                FROM coupons c
+                WHERE c.is_active = true AND c.end_date >= NOW() AND c.used_count < c.usage_limit
+                ORDER BY c.created_at DESC
+            `;
+        }
+        const result = await pool.query(query, params);
+        return result.rows;
+    }
 }
 
 module.exports = Coupon;
