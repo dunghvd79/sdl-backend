@@ -74,8 +74,9 @@ class OrderController {
         try {
             const { id } = req.params;
             const userId = req.user.id;
+            const { cancelReason } = req.body;
 
-            const updatedOrder = await OrderService.cancelOrder(id, userId);
+            const updatedOrder = await OrderService.cancelOrder(id, userId, cancelReason);
 
             res.status(200).json({
                 message: 'Hủy đơn hàng thành công!',

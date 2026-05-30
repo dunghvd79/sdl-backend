@@ -104,8 +104,13 @@ class AdminController {
                     }
                 }
 
-                const query = 'UPDATE orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *';
-                const result = await client.query(query, [newStatus, orderId]);
+                let query = 'UPDATE orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *';
+                let params = [newStatus, orderId];
+                if (newStatus === 'CANCELLED' && req.body.cancelReason) {
+                    query = 'UPDATE orders SET status = $1, cancel_reason = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *';
+                    params.push(req.body.cancelReason);
+                }
+                const result = await client.query(query, params);
 
                 // Tự động chèn thông báo trạng thái đơn hàng cho khách hàng
                 const statusLabels = {

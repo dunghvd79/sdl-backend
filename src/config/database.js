@@ -41,6 +41,13 @@ pool.query('SELECT NOW()', async (err, res) => {
             `);
             console.log('📊 Cấu trúc bảng orders (các cột):', colsRes.rows.map(r => r.column_name).join(', '));
 
+            // Tự động kiểm tra/thêm cột cancel_reason nếu chưa có
+            await pool.query(`
+                ALTER TABLE orders 
+                ADD COLUMN IF NOT EXISTS cancel_reason TEXT;
+            `);
+            console.log('✅ Migration: Đã kiểm tra/thêm cột cancel_reason vào bảng orders.');
+
             const updateRes = await pool.query(`
                 UPDATE orders 
                 SET created_at = CURRENT_TIMESTAMP 

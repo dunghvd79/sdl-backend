@@ -131,7 +131,7 @@ class OrderService {
     }
 
     // Khách hàng hủy đơn hàng (chỉ cho phép khi ở trạng thái PENDING, CONFIRMED, PACKAGING)
-    static async cancelOrder(orderId, userId) {
+    static async cancelOrder(orderId, userId, cancelReason = null) {
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
@@ -166,14 +166,14 @@ class OrderService {
                 }
             }
 
-            // Cập nhật trạng thái đơn hàng thành CANCELLED
+            // Cập nhật trạng thái đơn hàng thành CANCELLED kèm lý do hủy
             const updateQuery = `
                 UPDATE orders
-                SET status = 'CANCELLED', updated_at = CURRENT_TIMESTAMP
+                SET status = 'CANCELLED', cancel_reason = $2, updated_at = CURRENT_TIMESTAMP
                 WHERE id = $1
                 RETURNING *
             `;
-            const result = await client.query(updateQuery, [orderId]);
+            const result = await client.query(updateQuery, [orderId, cancelReason]);
 
             await client.query('COMMIT');
             return result.rows[0];
