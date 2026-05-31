@@ -31,22 +31,24 @@ class Order {
       SELECT o.*,
         -- Gom các món hàng trong đơn thành mảng JSON để Frontend dễ đọc
         COALESCE(
-          json_agg(
-            json_build_object(
-              'id', oi.id,
-              'bookId', oi.book_id,
-              'quantity', oi.quantity,
-              'price', oi.price,
-              'bookTitle', b.title,
-              'cover_url', b.cover_url
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', oi.id,
+                'bookId', oi.book_id,
+                'quantity', oi.quantity,
+                'price', oi.price,
+                'bookTitle', b.title,
+                'cover_url', b.cover_url
+              )
             )
-          ) FILTER (WHERE oi.id IS NOT NULL), '[]'
+            FROM order_items oi
+            LEFT JOIN books b ON oi.book_id = b.id
+            WHERE oi.order_id = o.id
+          ), '[]'::json
         ) as items
       FROM orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN books b ON oi.book_id = b.id
       WHERE o.user_id = $1
-      GROUP BY o.id, o.user_id, o.total_amount, o.status, o.shipping_name, o.shipping_phone, o.shipping_address, o.shipping_notes, o.payment_method, o.coupon_id, o.discount_amount, o.cancel_reason, o.created_at, o.updated_at
       ORDER BY o.created_at DESC
     `;
         const result = await pool.query(query, [userId]);
@@ -58,24 +60,26 @@ class Order {
         const query = `
       SELECT o.*, u.full_name, u.email, c.code as coupon_code,
         COALESCE(
-          json_agg(
-            json_build_object(
-              'bookId', oi.book_id,
-              'quantity', oi.quantity,
-              'price', oi.price,
-              'bookTitle', b.title,
-              'bookAuthor', b.author,
-              'cover_url', b.cover_url
+          (
+            SELECT json_agg(
+              json_build_object(
+                'bookId', oi.book_id,
+                'quantity', oi.quantity,
+                'price', oi.price,
+                'bookTitle', b.title,
+                'bookAuthor', b.author,
+                'cover_url', b.cover_url
+              )
             )
-          ) FILTER (WHERE oi.id IS NOT NULL), '[]'
+            FROM order_items oi
+            LEFT JOIN books b ON oi.book_id = b.id
+            WHERE oi.order_id = o.id
+          ), '[]'::json
         ) as items
       FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN books b ON oi.book_id = b.id
       LEFT JOIN coupons c ON o.coupon_id = c.id
       WHERE o.id = $1
-      GROUP BY o.id, o.user_id, o.total_amount, o.status, o.shipping_name, o.shipping_phone, o.shipping_address, o.shipping_notes, o.payment_method, o.coupon_id, o.discount_amount, o.cancel_reason, o.created_at, o.updated_at, u.full_name, u.email, c.code
     `;
         const result = await pool.query(query, [orderId]);
         return result.rows[0] || null;

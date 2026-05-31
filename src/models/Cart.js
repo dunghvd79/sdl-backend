@@ -7,27 +7,29 @@ class Cart {
       SELECT c.*, 
         -- Gom các món hàng lại thành mảng JSON
         COALESCE(
-          json_agg(
-            json_build_object(
-              'id', ci.id,
-              'bookId', ci.book_id,
-              'quantity', ci.quantity,
-              'priceAtAdd', ci.price_at_add,
-              'book', json_build_object(
-                'id', b.id,
-                'title', b.title,
-                'author', b.author,
-                'price', b.price,
-                'cover_url', b.cover_url
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', ci.id,
+                'bookId', ci.book_id,
+                'quantity', ci.quantity,
+                'priceAtAdd', ci.price_at_add,
+                'book', json_build_object(
+                  'id', b.id,
+                  'title', b.title,
+                  'author', b.author,
+                  'price', b.price,
+                  'cover_url', b.cover_url
+                )
               )
             )
-          ) FILTER (WHERE ci.id IS NOT NULL), '[]'
+            FROM cart_items ci
+            LEFT JOIN books b ON ci.book_id = b.id
+            WHERE ci.cart_id = c.id
+          ), '[]'::json
         ) as items
       FROM carts c
-      LEFT JOIN cart_items ci ON c.id = ci.cart_id
-      LEFT JOIN books b ON ci.book_id = b.id
       WHERE c.user_id = $1
-      GROUP BY c.id, c.user_id, c.created_at
     `;
 
         const result = await pool.query(query, [userId]);
