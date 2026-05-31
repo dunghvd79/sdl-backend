@@ -32,7 +32,7 @@ class InventoryController {
         const client = await pool.connect();
         try {
             const { bookId } = req.params;
-            const { availableQty } = req.body;
+            const { availableQty, type, reason } = req.body;
 
             if (availableQty === undefined || availableQty < 0) {
                 return res.status(400).json({ error: 'Số lượng không hợp lệ!' });
@@ -60,10 +60,14 @@ class InventoryController {
             `;
             const result = await client.query(updateQuery, [bookId, newQty]);
 
-            // 3. Nếu số lượng thay đổi, ghi log ADJUSTMENT
+            // 3. Nếu số lượng thay đổi, ghi log
             if (diff !== 0) {
-                const reason = `Điều chỉnh tồn kho thủ công (Từ ${prevQty} sang ${newQty})`;
-                await Inventory.recordTransaction(client, bookId, 'ADJUSTMENT', diff, prevQty, newQty, reason, req.user.id);
+                const defaultReason = diff > 0 
+                    ? `Nhập thêm tồn kho thủ công (Từ ${prevQty} sang ${newQty})`
+                    : `Điều chỉnh giảm tồn kho thủ công (Từ ${prevQty} sang ${newQty})`;
+                const logReason = reason || defaultReason;
+                const logType = type || 'ADJUSTMENT';
+                await Inventory.recordTransaction(client, bookId, logType, diff, prevQty, newQty, logReason, req.user.id);
             }
 
             await client.query('COMMIT');

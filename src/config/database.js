@@ -90,6 +90,20 @@ pool.query('SELECT NOW()', async (err, res) => {
             if (updateRes.rowCount > 0 || updateRes2.rowCount > 0) {
                 console.log(`✅ Migration: Đã tự động cập nhật timestamps cho đơn hàng bị NULL (created_at: ${updateRes.rowCount}, updated_at: ${updateRes2.rowCount}).`);
             }
+
+            // Tự động sửa lỗi created_at = NULL trên bảng inventory_transactions
+            try {
+                const txUpdate = await pool.query(`
+                    UPDATE inventory_transactions 
+                    SET created_at = CURRENT_TIMESTAMP 
+                    WHERE created_at IS NULL;
+                `);
+                if (txUpdate.rowCount > 0) {
+                    console.log(`✅ Migration: Đã tự động cập nhật created_at từ NULL về CURRENT_TIMESTAMP cho ${txUpdate.rowCount} dòng lịch sử kho.`);
+                }
+            } catch (txErr) {
+                console.error('❌ Migration inventory_transactions gặp lỗi:', txErr.message);
+            }
         } catch (orderErr) {
             console.error('❌ Lỗi kiểm tra/cập nhật bảng orders hoặc coupons:', orderErr.message);
         }
