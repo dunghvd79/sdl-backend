@@ -1,13 +1,16 @@
 const pool = require('../config/database');
 
 class Category {
-    // Lấy tất cả danh mục kèm số lượng sách liên kết
+    // Lấy tất cả danh mục kèm số lượng sách liên kết (sử dụng subquery để tránh lỗi GROUP BY trên các phiên bản SQL khác nhau)
     static async getAll() {
         const query = `
-            SELECT c.*, COUNT(bc.book_id)::integer as book_count
+            SELECT c.*, COALESCE(sub.book_count, 0)::integer as book_count
             FROM categories c
-            LEFT JOIN book_categories bc ON c.id = bc.category_id
-            GROUP BY c.id
+            LEFT JOIN (
+                SELECT category_id, COUNT(book_id) as book_count
+                FROM book_categories
+                GROUP BY category_id
+            ) sub ON c.id = sub.category_id
             ORDER BY c.name ASC
         `;
         const result = await pool.query(query);
