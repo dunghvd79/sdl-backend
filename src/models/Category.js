@@ -1,9 +1,15 @@
 const pool = require('../config/database');
 
 class Category {
-    // Lấy tất cả danh mục
+    // Lấy tất cả danh mục kèm số lượng sách liên kết
     static async getAll() {
-        const query = 'SELECT * FROM categories ORDER BY name ASC';
+        const query = `
+            SELECT c.*, COUNT(bc.book_id)::integer as book_count
+            FROM categories c
+            LEFT JOIN book_categories bc ON c.id = bc.category_id
+            GROUP BY c.id
+            ORDER BY c.name ASC
+        `;
         const result = await pool.query(query);
         return result.rows;
     }
