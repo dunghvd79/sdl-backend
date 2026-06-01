@@ -32,6 +32,21 @@ pool.query('SELECT NOW()', async (err, res) => {
             }
         }
 
+        // Tự động chạy Migration bổ sung ràng buộc UNIQUE cho inventory(book_id) nếu chưa có
+        try {
+            await pool.query(`
+                ALTER TABLE inventory 
+                ADD CONSTRAINT unique_inventory_book UNIQUE (book_id);
+            `);
+            console.log('✅ Migration: Đã thêm ràng buộc UNIQUE (book_id) cho bảng inventory thành công.');
+        } catch (migErr) {
+            if (migErr.code === '42P16' || migErr.code === '42710' || migErr.message.includes('already exists') || migErr.message.includes('already a unique constraint')) {
+                console.log('ℹ️ Migration: Ràng buộc UNIQUE cho inventory(book_id) đã tồn tại. Bỏ qua.');
+            } else {
+                console.error('❌ Migration inventory UNIQUE gặp lỗi:', migErr.message);
+            }
+        }
+
         // Tự động kiểm tra cấu trúc bảng orders và cập nhật các dòng có created_at bị NULL về thời gian hiện tại
         try {
             const colsRes = await pool.query(`
