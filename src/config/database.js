@@ -108,6 +108,14 @@ pool.query('SELECT NOW()', async (err, res) => {
 
             // Tự động sửa lỗi created_at = NULL trên bảng inventory_transactions
             try {
+                // Thiết lập DEFAULT CURRENT_TIMESTAMP cho created_at trên bảng inventory_transactions nếu chưa có
+                await pool.query(`
+                    ALTER TABLE inventory_transactions 
+                    ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
+                `);
+                console.log('✅ Migration: Đã thiết lập DEFAULT CURRENT_TIMESTAMP cho cột created_at bảng inventory_transactions.');
+
+                // Quét cập nhật các dòng đang bị NULL về thời gian hiện tại
                 const txUpdate = await pool.query(`
                     UPDATE inventory_transactions 
                     SET created_at = CURRENT_TIMESTAMP 
@@ -117,7 +125,7 @@ pool.query('SELECT NOW()', async (err, res) => {
                     console.log(`✅ Migration: Đã tự động cập nhật created_at từ NULL về CURRENT_TIMESTAMP cho ${txUpdate.rowCount} dòng lịch sử kho.`);
                 }
             } catch (txErr) {
-                console.error('❌ Migration inventory_transactions gặp lỗi:', txErr.message);
+                console.error('❌ Migration inventory_transactions timestamps gặp lỗi:', txErr.message);
             }
         } catch (orderErr) {
             console.error('❌ Lỗi kiểm tra/cập nhật bảng orders hoặc coupons:', orderErr.message);
