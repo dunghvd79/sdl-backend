@@ -172,6 +172,32 @@ pool.query('SELECT NOW()', async (err, res) => {
             } catch (txErr) {
                 console.error('❌ Migration inventory_transactions timestamps gặp lỗi:', txErr.message);
             }
+
+            // Tự động sửa lỗi created_at = NULL trên bảng users
+            try {
+                // Đảm bảo cột created_at tồn tại và có giá trị mặc định là CURRENT_TIMESTAMP
+                await pool.query(`
+                    ALTER TABLE users 
+                    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                `);
+                await pool.query(`
+                    ALTER TABLE users 
+                    ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
+                `);
+                console.log('✅ Migration: Đã kiểm tra/thiết lập DEFAULT CURRENT_TIMESTAMP cho cột created_at bảng users.');
+
+                // Quét cập nhật các dòng đang bị NULL về thời gian hiện tại
+                const userUpdate = await pool.query(`
+                    UPDATE users 
+                    SET created_at = CURRENT_TIMESTAMP 
+                    WHERE created_at IS NULL;
+                `);
+                if (userUpdate.rowCount > 0) {
+                    console.log(`✅ Migration: Đã tự động cập nhật created_at từ NULL về CURRENT_TIMESTAMP cho ${userUpdate.rowCount} người dùng.`);
+                }
+            } catch (userErr) {
+                console.error('❌ Migration users timestamps gặp lỗi:', userErr.message);
+            }
         } catch (orderErr) {
             console.error('❌ Lỗi kiểm tra/cập nhật bảng orders hoặc coupons:', orderErr.message);
         }
