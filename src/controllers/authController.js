@@ -6,13 +6,48 @@ class AuthController {
         try {
             const { email, password, fullName } = req.body;
 
-            // Validate dữ liệu đầu vào cơ bản
+            // Validate dữ liệu đầu vào
             if (!email || !password || !fullName) {
-                return res.status(400).json({ error: 'Vui lòng nhập đầy đủ email, password và họ tên!' });
+                return res.status(400).json({ error: 'Vui lòng nhập đầy đủ email, mật khẩu và họ tên!' });
             }
 
-            // Gọi xuống Service xử lý
-            const result = await AuthService.register({ email, password, fullName });
+            const trimmedEmail = email.trim();
+            const trimmedName = fullName.trim();
+
+            // 1. Kiểm tra Email
+            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            if (!emailRegex.test(trimmedEmail)) {
+                return res.status(400).json({ error: 'Địa chỉ email không hợp lệ (ví dụ: vi-du@email.com)!' });
+            }
+            if (trimmedEmail.length > 255) {
+                return res.status(400).json({ error: 'Email không được dài quá 255 ký tự!' });
+            }
+
+            // 2. Kiểm tra Họ và tên
+            if (trimmedName.length < 2 || trimmedName.length > 100) {
+                return res.status(400).json({ error: 'Họ và tên phải dài từ 2 đến 100 ký tự!' });
+            }
+            const nameSpecialCharRegex = /[0-9`~!@#$%^&*()_+={}\[\]|\\:;"'<>,.?\/]/;
+            if (nameSpecialCharRegex.test(trimmedName)) {
+                return res.status(400).json({ error: 'Họ và tên không được chứa số hoặc ký tự đặc biệt!' });
+            }
+
+            // 3. Kiểm tra Mật khẩu
+            if (password.length < 6) {
+                return res.status(400).json({ error: 'Mật khẩu phải chứa ít nhất 6 ký tự!' });
+            }
+            const hasLetter = /[a-zA-Z]/.test(password);
+            const hasNumber = /[0-9]/.test(password);
+            if (!hasLetter || !hasNumber) {
+                return res.status(400).json({ error: 'Mật khẩu phải bao gồm cả chữ cái và chữ số!' });
+            }
+
+            // Gọi xuống Service xử lý với dữ liệu đã chuẩn hóa
+            const result = await AuthService.register({ 
+                email: trimmedEmail, 
+                password, 
+                fullName: trimmedName 
+            });
 
             res.status(201).json({
                 message: 'Đăng ký tài khoản thành công!',
