@@ -8,6 +8,25 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Route tạm thời tạo bảng book_images để gỡ rối nhanh
+router.get('/init-db-temp', async (req, res) => {
+    try {
+        const pool = require('../config/database');
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS book_images (
+                id SERIAL PRIMARY KEY,
+                book_id INT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+                image_url TEXT NOT NULL,
+                display_order INT NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        res.json({ message: "Successfully created or verified book_images table!" });
+    } catch (err) {
+        res.status(500).json({ error: err.message, stack: err.stack });
+    }
+});
+
 // Public (Ai cũng xem được)
 router.get('/', bookController.getAllBooks);
 router.get('/:id', bookController.getBook);
