@@ -16,7 +16,25 @@ class Book {
 
     // Lấy chi tiết 1 cuốn sách theo ID
     static async findById(id) {
-        const query = 'SELECT * FROM books WHERE id = $1';
+        const query = `
+            SELECT b.*, 
+                   COALESCE(i.available_qty, 0) as available_qty,
+                   COALESCE(i.reserved_qty, 0) as reserved_qty,
+                   (
+                       SELECT COALESCE(json_agg(json_build_object('id', cat.id, 'name', cat.name)), '[]')
+                       FROM book_categories bcat
+                       JOIN categories cat ON bcat.category_id = cat.id
+                       WHERE bcat.book_id = b.id
+                   ) as categories,
+                   (
+                       SELECT COALESCE(json_agg(json_build_object('id', bi.id, 'image_url', bi.image_url, 'display_order', bi.display_order) ORDER BY bi.display_order ASC), '[]')
+                       FROM book_images bi
+                       WHERE bi.book_id = b.id
+                   ) as images
+            FROM books b
+            LEFT JOIN inventory i ON b.id = i.book_id
+            WHERE b.id = $1
+        `;
         const result = await pool.query(query, [id]);
         return result.rows[0] || null;
     }
@@ -46,7 +64,12 @@ class Book {
                  FROM book_categories bcat
                  JOIN categories cat ON bcat.category_id = cat.id
                  WHERE bcat.book_id = b.id
-             ) as categories
+             ) as categories,
+             (
+                 SELECT COALESCE(json_agg(json_build_object('id', bi.id, 'image_url', bi.image_url, 'display_order', bi.display_order) ORDER BY bi.display_order ASC), '[]')
+                 FROM book_images bi
+                 WHERE bi.book_id = b.id
+             ) as images
       FROM books b
       LEFT JOIN inventory i ON b.id = i.book_id
     `;

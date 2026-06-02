@@ -115,17 +115,18 @@ class BookController {
     // POST /api/books (Chỉ Admin/Curator)
     static async createBook(req, res) {
         try {
-            const { title, author, isbn, description, price, categories, cover_url, status, is_featured, is_bestseller, display_order } = req.body;
+            const { title, author, isbn, description, price, categories, cover_url, status, is_featured, is_bestseller, display_order, images } = req.body;
 
             const validationError = validateBookInput({ title, author, isbn, description, price, status });
             if (validationError) {
                 return res.status(400).json({ error: validationError });
             }
 
-            // Tạo sách và truyền mảng ID danh mục (nếu có)
+            // Tạo sách và truyền mảng ID danh mục cùng ảnh chi tiết phụ (nếu có)
             const book = await BookService.createBook(
                 { title, author, isbn, description, price: Number(price), cover_url, status: status || 'PUBLISHED', is_featured: !!is_featured, is_bestseller: !!is_bestseller, display_order: parseInt(display_order) || 0 },
-                categories
+                categories,
+                images
             );
 
             res.status(201).json({
@@ -155,7 +156,7 @@ class BookController {
     static async updateBook(req, res) {
         try {
             const { id } = req.params;
-            const { title, author, isbn, description, price, categories, cover_url, status, is_featured, is_bestseller, display_order } = req.body;
+            const { title, author, isbn, description, price, categories, cover_url, status, is_featured, is_bestseller, display_order, images } = req.body;
 
             const validationError = validateBookInput({ title, author, isbn, description, price, status });
             if (validationError) {
@@ -185,6 +186,21 @@ class BookController {
                         'INSERT INTO book_categories (book_id, category_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
                         [id, categoryId]
                     );
+                }
+            }
+
+            // Cập nhật ảnh chi tiết phụ
+            if (Array.isArray(images)) {
+                // Xóa ảnh cũ
+                await pool.query('DELETE FROM book_images WHERE book_id = $1', [id]);
+                // Thêm ảnh mới
+                for (const img of images) {
+                    if (img.image_url) {
+                        await pool.query(
+                            'INSERT INTO book_images (book_id, image_url, display_order) VALUES ($1, $2, $3)',
+                            [id, img.image_url, parseInt(img.display_order) || 0]
+                        );
+                    }
                 }
             }
 

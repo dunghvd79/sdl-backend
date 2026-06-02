@@ -5,7 +5,7 @@ const Book = require('../models/Book');
 
 class BookService {
     // Thêm sách và nối với danh mục
-    static async createBook(bookData, categoryIds = []) {
+    static async createBook(bookData, categoryIds = [], images = []) {
         // 1. Lưu thông tin sách vào bảng books
         const book = await Book.create(bookData);
 
@@ -13,6 +13,19 @@ class BookService {
         if (categoryIds.length > 0) {
             for (const categoryId of categoryIds) {
                 await Book.addCategory(book.id, categoryId);
+            }
+        }
+
+        // 3. Nếu có gửi kèm ảnh chi tiết phụ, lưu vào bảng book_images
+        if (images && images.length > 0) {
+            const pool = require('../config/database');
+            for (const img of images) {
+                if (img.image_url) {
+                    await pool.query(
+                        'INSERT INTO book_images (book_id, image_url, display_order) VALUES ($1, $2, $3)',
+                        [book.id, img.image_url, parseInt(img.display_order) || 0]
+                    );
+                }
             }
         }
 

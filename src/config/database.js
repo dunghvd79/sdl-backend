@@ -156,6 +156,22 @@ pool.query('SELECT NOW()', async (err, res) => {
             } catch (txErr) {
                 console.error('❌ Migration inventory_transactions timestamps gặp lỗi:', txErr.message);
             }
+
+            // Tự động tạo bảng book_images cho bộ sưu tập ảnh chi tiết nếu chưa có
+            try {
+                await pool.query(`
+                    CREATE TABLE IF NOT EXISTS book_images (
+                        id SERIAL PRIMARY KEY,
+                        book_id INT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+                        image_url TEXT NOT NULL,
+                        display_order INT NOT NULL DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                `);
+                console.log('✅ Migration: Đã kiểm tra/tạo bảng book_images thành công.');
+            } catch (imgTableErr) {
+                console.error('❌ Migration book_images gặp lỗi:', imgTableErr.message);
+            }
         } catch (orderErr) {
             console.error('❌ Lỗi kiểm tra/cập nhật bảng orders hoặc coupons:', orderErr.message);
         }
