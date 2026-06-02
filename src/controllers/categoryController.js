@@ -56,6 +56,58 @@ class CategoryController {
             res.status(500).json({ error: err.message });
         }
     }
+
+    // GET /api/categories/:id/books (Chỉ Admin/Curator)
+    static async getCategoryBooks(req, res) {
+        try {
+            const { id } = req.params;
+            const category = await Category.findById(id);
+            if (!category) return res.status(404).json({ error: 'Không tìm thấy danh mục' });
+
+            const books = await Category.getBooks(id);
+            res.status(200).json({ data: { category, books } });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    }
+
+    // POST /api/categories/:id/books (Chỉ Admin/Curator)
+    static async assignBooksToCategory(req, res) {
+        try {
+            const { id } = req.params;
+            const { bookIds } = req.body;
+            if (!Array.isArray(bookIds)) {
+                return res.status(400).json({ error: 'Dữ liệu bookIds không hợp lệ, phải là một mảng' });
+            }
+
+            const category = await Category.findById(id);
+            if (!category) return res.status(404).json({ error: 'Không tìm thấy danh mục' });
+
+            const assigned = await Category.assignBooks(id, bookIds);
+            res.status(200).json({ message: 'Gán sách vào danh mục thành công', data: assigned });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    }
+
+    // DELETE /api/categories/:id/books/:bookId (Chỉ Admin/Curator)
+    static async removeBookFromCategory(req, res) {
+        try {
+            const { id, bookId } = req.params;
+
+            const category = await Category.findById(id);
+            if (!category) return res.status(404).json({ error: 'Không tìm thấy danh mục' });
+
+            const removed = await Category.removeBook(id, bookId);
+            if (!removed) {
+                return res.status(404).json({ error: 'Sách không thuộc danh mục này' });
+            }
+
+            res.status(200).json({ message: 'Gỡ sách khỏi danh mục thành công' });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    }
 }
 
 module.exports = CategoryController;

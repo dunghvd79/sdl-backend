@@ -17,4 +17,9 @@ router.put('/:id', verifyToken, requireRole(['ADMIN', 'CURATOR']), categoryContr
 // Protected (Chỉ ADMIN mới được Xóa)
 router.delete('/:id', verifyToken, requireRole(['ADMIN']), categoryController.deleteCategory);
 
+// Protected (Admin + Curator có thể quản lý sách trong danh mục)
+router.get('/:id/books', verifyToken, requireRole(['ADMIN', 'CURATOR']), categoryController.getCategoryBooks);
+router.post('/:id/books', verifyToken, requireRole(['ADMIN', 'CURATOR']), categoryController.assignBooksToCategory);
+router.delete('/:id/books/:bookId', verifyToken, requireRole(['ADMIN', 'CURATOR']), categoryController.removeBookFromCategory);
+
 module.exports = router;
