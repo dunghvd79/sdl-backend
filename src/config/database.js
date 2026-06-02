@@ -47,6 +47,35 @@ pool.query('SELECT NOW()', async (err, res) => {
             }
         }
 
+        // Tự động chạy Migration bổ sung ràng buộc UNIQUE cho coupons(code) nếu chưa có
+        try {
+            // Bước 1: Dọn dẹp bản ghi trùng lặp trước (chỉ giữ lại bản ghi id nhỏ nhất cho mỗi code)
+            const cleanCouponsRes = await pool.query(`
+                DELETE FROM coupons 
+                WHERE id NOT IN (
+                    SELECT MIN(id) 
+                    FROM coupons 
+                    GROUP BY UPPER(code)
+                );
+            `);
+            if (cleanCouponsRes.rowCount > 0) {
+                console.log(`✅ Migration: Đã dọn dẹp ${cleanCouponsRes.rowCount} mã giảm giá bị trùng lặp.`);
+            }
+
+            // Bước 2: Thêm ràng buộc UNIQUE
+            await pool.query(`
+                ALTER TABLE coupons 
+                ADD CONSTRAINT unique_coupons_code UNIQUE (code);
+            `);
+            console.log('✅ Migration: Đã thêm ràng buộc UNIQUE (code) cho bảng coupons thành công.');
+        } catch (migErr) {
+            if (migErr.code === '42P16' || migErr.code === '42710' || migErr.message.includes('already exists') || migErr.message.includes('already a unique constraint')) {
+                console.log('ℹ️ Migration: Ràng buộc UNIQUE cho coupons(code) đã tồn tại. Bỏ qua.');
+            } else {
+                console.error('❌ Migration coupons UNIQUE gặp lỗi:', migErr.message);
+            }
+        }
+
         // Tự động kiểm tra cấu trúc bảng orders và cập nhật các dòng có created_at bị NULL về thời gian hiện tại
         try {
             const colsRes = await pool.query(`

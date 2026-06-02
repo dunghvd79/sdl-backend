@@ -14,10 +14,10 @@ router.use(verifyToken);
 router.get('/validate', CouponController.validateCoupon);
 
 // ─── ADMIN / CURATOR: Quản lý mã giảm giá ───────────────────────────────────
-router.get('/', requireRole(['ADMIN', 'CURATOR']), CouponController.getAllCoupons);
-router.post('/', requireRole(['ADMIN', 'CURATOR']), CouponController.createCoupon);
-router.put('/:id', requireRole(['ADMIN', 'CURATOR']), CouponController.updateCoupon);
-router.patch('/:id/toggle', requireRole(['ADMIN', 'CURATOR']), CouponController.toggleCoupon);
+router.get('/', requireRole(['ADMIN']), CouponController.getAllCoupons);
+router.post('/', requireRole(['ADMIN']), CouponController.createCoupon);
+router.put('/:id', requireRole(['ADMIN']), CouponController.updateCoupon);
+router.patch('/:id/toggle', requireRole(['ADMIN']), CouponController.toggleCoupon);
 router.delete('/:id', requireRole(['ADMIN']), CouponController.deleteCoupon);
 
 module.exports = router;
