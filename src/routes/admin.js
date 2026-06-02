@@ -8,12 +8,12 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 // và xử lý phân quyền chi tiết hơn nếu cần. Theo yêu cầu, ta sẽ cho ADMIN làm hết.
 router.use(verifyToken);
 
-// Quản lý Thống kê (Cả Admin và Curator)
-router.get('/stats', requireRole(['ADMIN', 'CURATOR']), AdminController.getDashboardStats);
+// Quản lý Thống kê (Chỉ Admin)
+router.get('/stats', requireRole(['ADMIN']), AdminController.getDashboardStats);
 
-// Quản lý Đơn hàng (Cả Admin và Curator)
+// Quản lý Đơn hàng (Cả Admin và Curator xem, nhưng chỉ Admin mới có quyền cập nhật trạng thái)
 router.get('/orders', requireRole(['ADMIN', 'CURATOR']), AdminController.getAllOrders);
-router.put('/orders/:orderId/status', requireRole(['ADMIN', 'CURATOR']), AdminController.updateOrderStatus);
+router.put('/orders/:orderId/status', requireRole(['ADMIN']), AdminController.updateOrderStatus);
 
 // Quản lý Người dùng (Chỉ Admin)
 router.get('/users', requireRole(['ADMIN']), AdminController.getAllUsers);
