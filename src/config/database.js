@@ -209,6 +209,37 @@ pool.query('SELECT NOW()', async (err, res) => {
             } catch (artErr) {
                 console.error('❌ Migration articles is_featured gặp lỗi:', artErr.message);
             }
+
+            // Tự động dọn dẹp các dòng trùng lặp trong bảng articles nếu có (giữ lại bản ghi đầu tiên)
+            try {
+                const cleanArticlesRes = await pool.query(`
+                    DELETE FROM articles 
+                    WHERE ctid NOT IN (
+                        SELECT MIN(ctid) 
+                        FROM articles 
+                        GROUP BY id
+                    );
+                `);
+                if (cleanArticlesRes.rowCount > 0) {
+                    console.log(`✅ Migration articles: Đã dọn dẹp ${cleanArticlesRes.rowCount} bài viết bị trùng lặp.`);
+                }
+            } catch (cleanArtErr) {
+                console.error('❌ Migration articles cleanup gặp lỗi:', cleanArtErr.message);
+            }
+
+            // Đảm bảo cột id có ràng buộc PRIMARY KEY nếu chưa có
+            try {
+                await pool.query(`
+                    ALTER TABLE articles ADD PRIMARY KEY (id);
+                `);
+                console.log('✅ Migration articles: Đã thêm ràng buộc PRIMARY KEY cho id thành công.');
+            } catch (pkErr) {
+                if (pkErr.code === '42P16' || pkErr.message.includes('already exists') || pkErr.message.includes('already a primary key') || pkErr.message.includes('multiple primary keys')) {
+                    console.log('ℹ️ Migration articles: Ràng buộc PRIMARY KEY cho articles đã tồn tại. Bỏ qua.');
+                } else {
+                    console.error('❌ Migration articles PRIMARY KEY gặp lỗi:', pkErr.message);
+                }
+            }
         } catch (orderErr) {
             console.error('❌ Lỗi kiểm tra/cập nhật bảng orders hoặc coupons:', orderErr.message);
         }
