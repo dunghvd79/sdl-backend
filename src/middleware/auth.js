@@ -4,6 +4,9 @@ const AuthService = require('../services/authService');
 // Middleware 1: Kiểm tra Token hợp lệ
 const verifyToken = async (req, res, next) => {
     try {
+        // Chống trình duyệt lưu bộ nhớ đệm (caching) các dữ liệu nhạy cảm của cá nhân
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+
         // Client sẽ gửi token trên Header với định dạng: "Bearer <token>"
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
