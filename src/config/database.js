@@ -232,13 +232,25 @@ pool.query('SELECT NOW()', async (err, res) => {
                 await pool.query(`
                     ALTER TABLE articles ADD PRIMARY KEY (id);
                 `);
-                console.log('✅ Migration articles: Đã thêm ràng buộc PRIMARY KEY cho id thành công.');
             } catch (pkErr) {
                 if (pkErr.code === '42P16' || pkErr.message.includes('already exists') || pkErr.message.includes('already a primary key') || pkErr.message.includes('multiple primary keys')) {
                     console.log('ℹ️ Migration articles: Ràng buộc PRIMARY KEY cho articles đã tồn tại. Bỏ qua.');
                 } else {
                     console.error('❌ Migration articles PRIMARY KEY gặp lỗi:', pkErr.message);
                 }
+            }
+
+            // Đảm bảo đồng bộ hóa sequence generator của bảng articles để tránh lỗi unique constraint articles_pkey
+            try {
+                await pool.query(`
+                    SELECT setval(
+                        pg_get_serial_sequence('articles', 'id'), 
+                        COALESCE((SELECT MAX(id) FROM articles), 0)
+                    );
+                `);
+                console.log('✅ Migration articles: Đã đồng bộ hóa sequence generator thành công.');
+            } catch (seqErr) {
+                console.error('❌ Migration articles sequence reset gặp lỗi:', seqErr.message);
             }
         } catch (orderErr) {
             console.error('❌ Lỗi kiểm tra/cập nhật bảng orders hoặc coupons:', orderErr.message);
