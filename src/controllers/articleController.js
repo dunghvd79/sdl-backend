@@ -41,7 +41,7 @@ class ArticleController {
     // POST /api/articles (Chỉ Admin/Curator)
     static async createArticle(req, res) {
         try {
-            const { title, summary, content, cover_url, category, reading_time, status } = req.body;
+            const { title, summary, content, cover_url, category, reading_time, status, is_featured } = req.body;
 
             if (!title || !title.trim()) {
                 return res.status(400).json({ error: 'Tiêu đề không được để trống!' });
@@ -57,7 +57,8 @@ class ArticleController {
                 cover_url,
                 category: category || 'Chiêm nghiệm',
                 reading_time: reading_time || '5 phút đọc',
-                status: status || 'PUBLISHED'
+                status: status || 'PUBLISHED',
+                is_featured: is_featured === true || is_featured === 'true'
             });
 
             res.status(201).json({
@@ -73,7 +74,7 @@ class ArticleController {
     static async updateArticle(req, res) {
         try {
             const { id } = req.params;
-            const { title, summary, content, cover_url, category, reading_time, status } = req.body;
+            const { title, summary, content, cover_url, category, reading_time, status, is_featured } = req.body;
 
             if (!title || !title.trim()) {
                 return res.status(400).json({ error: 'Tiêu đề không được để trống!' });
@@ -89,7 +90,8 @@ class ArticleController {
                 cover_url,
                 category,
                 reading_time,
-                status
+                status,
+                is_featured: is_featured === true || is_featured === 'true'
             });
 
             if (!article) {

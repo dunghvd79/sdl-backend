@@ -198,6 +198,17 @@ pool.query('SELECT NOW()', async (err, res) => {
             } catch (userErr) {
                 console.error('❌ Migration users timestamps gặp lỗi:', userErr.message);
             }
+
+            // Tự động kiểm tra/thêm cột is_featured vào bảng articles nếu chưa có
+            try {
+                await pool.query(`
+                    ALTER TABLE articles 
+                    ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT FALSE;
+                `);
+                console.log('✅ Migration: Đã kiểm tra/thêm cột is_featured vào bảng articles.');
+            } catch (artErr) {
+                console.error('❌ Migration articles is_featured gặp lỗi:', artErr.message);
+            }
         } catch (orderErr) {
             console.error('❌ Lỗi kiểm tra/cập nhật bảng orders hoặc coupons:', orderErr.message);
         }

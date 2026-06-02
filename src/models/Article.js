@@ -3,14 +3,14 @@ const pool = require('../config/database');
 class Article {
     // 1. Thêm bài viết mới
     static async create(articleData) {
-        const { title, summary, content, cover_url, category = 'Chiêm nghiệm', reading_time = '5 phút đọc', status = 'PUBLISHED' } = articleData;
+        const { title, summary, content, cover_url, category = 'Chiêm nghiệm', reading_time = '5 phút đọc', status = 'PUBLISHED', is_featured = false } = articleData;
 
         const query = `
-            INSERT INTO articles (title, summary, content, cover_url, category, reading_time, status)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO articles (title, summary, content, cover_url, category, reading_time, status, is_featured)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING *
         `;
-        const result = await pool.query(query, [title, summary, content, cover_url || null, category, reading_time, status]);
+        const result = await pool.query(query, [title, summary, content, cover_url || null, category, reading_time, status, is_featured]);
         return result.rows[0];
     }
 
@@ -52,8 +52,8 @@ class Article {
             query += ` WHERE ${whereConditions.join(' AND ')}`;
         }
 
-        // Sắp xếp bài viết mới nhất lên đầu
-        query += ' ORDER BY created_at DESC';
+        // Sắp xếp bài viết: bài viết được ghim lên đầu trang, sau đó theo thời gian giảm dần
+        query += ' ORDER BY is_featured DESC, created_at DESC';
 
         // Phân trang
         params.push(limit, offset);
@@ -65,15 +65,15 @@ class Article {
 
     // 4. Cập nhật bài viết
     static async update(id, articleData) {
-        const { title, summary, content, cover_url, category, reading_time, status } = articleData;
+        const { title, summary, content, cover_url, category, reading_time, status, is_featured } = articleData;
 
         const query = `
             UPDATE articles
-            SET title = $1, summary = $2, content = $3, cover_url = $4, category = $5, reading_time = $6, status = $7
-            WHERE id = $8
+            SET title = $1, summary = $2, content = $3, cover_url = $4, category = $5, reading_time = $6, status = $7, is_featured = $8
+            WHERE id = $9
             RETURNING *
         `;
-        const result = await pool.query(query, [title, summary, content, cover_url || null, category, reading_time, status, id]);
+        const result = await pool.query(query, [title, summary, content, cover_url || null, category, reading_time, status, is_featured !== undefined ? is_featured : false, id]);
         return result.rows[0] || null;
     }
 
