@@ -252,6 +252,30 @@ pool.query('SELECT NOW()', async (err, res) => {
             } catch (seqErr) {
                 console.error('❌ Migration articles sequence reset gặp lỗi:', seqErr.message);
             }
+
+            // Đảm bảo cột created_at trong bảng articles có DEFAULT CURRENT_TIMESTAMP và cập nhật các dòng đang bị NULL
+            try {
+                await pool.query(`
+                    ALTER TABLE articles 
+                    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                `);
+                await pool.query(`
+                    ALTER TABLE articles 
+                    ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
+                `);
+                console.log('✅ Migration articles: Đã kiểm tra/thiết lập DEFAULT CURRENT_TIMESTAMP cho cột created_at.');
+
+                const artUpdate = await pool.query(`
+                    UPDATE articles 
+                    SET created_at = CURRENT_TIMESTAMP 
+                    WHERE created_at IS NULL;
+                `);
+                if (artUpdate.rowCount > 0) {
+                    console.log(`✅ Migration articles: Đã tự động cập nhật created_at từ NULL về CURRENT_TIMESTAMP cho ${artUpdate.rowCount} bài viết.`);
+                }
+            } catch (artDateErr) {
+                console.error('❌ Migration articles created_at gặp lỗi:', artDateErr.message);
+            }
         } catch (orderErr) {
             console.error('❌ Lỗi kiểm tra/cập nhật bảng orders hoặc coupons:', orderErr.message);
         }
