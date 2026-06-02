@@ -120,6 +120,17 @@ class ArticleController {
             res.status(500).json({ error: err.message });
         }
     }
+
+    // GET /api/articles/categories
+    static async getUniqueCategories(req, res) {
+        try {
+            const adminMode = req.query.adminMode === 'true';
+            const categories = await Article.getUniqueCategories(adminMode);
+            res.status(200).json({ data: categories });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    }
 }
 
 module.exports = ArticleController;

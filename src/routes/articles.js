@@ -6,6 +6,7 @@ const router = express.Router();
 
 // Public (Ai cũng xem được)
 router.get('/', articleController.getAllArticles);
+router.get('/categories', articleController.getUniqueCategories);
 router.get('/:id', articleController.getArticle);
 
 // Protected (Phải Đăng nhập + Có quyền ADMIN hoặc CURATOR)

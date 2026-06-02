@@ -83,6 +83,17 @@ class Article {
         const result = await pool.query(query, [id]);
         return result.rowCount > 0;
     }
+
+    // 6. Lấy danh sách chuyên mục duy nhất
+    static async getUniqueCategories(adminMode = false) {
+        let query = 'SELECT DISTINCT category FROM articles';
+        if (!adminMode) {
+            query += " WHERE status = 'PUBLISHED'";
+        }
+        query += ' ORDER BY category ASC';
+        const result = await pool.query(query);
+        return result.rows.map(r => r.category).filter(Boolean);
+    }
 }
 
 module.exports = Article;
