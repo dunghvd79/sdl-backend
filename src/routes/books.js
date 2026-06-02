@@ -12,16 +12,25 @@ const router = express.Router();
 router.get('/init-db-temp', async (req, res) => {
     try {
         const pool = require('../config/database');
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS book_images (
-                id SERIAL PRIMARY KEY,
-                book_id INT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-                image_url TEXT NOT NULL,
-                display_order INT NOT NULL DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
+        
+        // Truy vấn danh sách ràng buộc của bảng books
+        const constraintsRes = await pool.query(`
+            SELECT constraint_name, constraint_type 
+            FROM information_schema.table_constraints 
+            WHERE table_name = 'books'
         `);
-        res.json({ message: "Successfully created or verified book_images table!" });
+
+        // Truy vấn cấu trúc cột của bảng books
+        const columnsRes = await pool.query(`
+            SELECT column_name, data_type, is_nullable
+            FROM information_schema.columns 
+            WHERE table_name = 'books'
+        `);
+
+        res.json({ 
+            constraints: constraintsRes.rows,
+            columns: columnsRes.rows
+        });
     } catch (err) {
         res.status(500).json({ error: err.message, stack: err.stack });
     }
