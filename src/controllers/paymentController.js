@@ -1,7 +1,10 @@
 const PaymentService = require('../services/paymentService');
 const Order = require('../models/Order');
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const rawFrontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+const FRONTEND_URL = rawFrontendUrl.includes('pigeon-bookstore.netlify.app') 
+    ? 'https://pigeon-bookstore.pages.dev' 
+    : rawFrontendUrl;
 
 class PaymentController {
     // GET /api/payments/url/:orderId
