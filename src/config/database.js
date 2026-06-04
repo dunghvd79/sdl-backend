@@ -199,6 +199,61 @@ pool.query('SELECT NOW()', async (err, res) => {
                 console.error('❌ Migration users timestamps gặp lỗi:', userErr.message);
             }
 
+            // Tự động kiểm tra và sửa lỗi id bị NULL hoặc trùng lặp trên bảng users (tự phục hồi dữ liệu)
+            try {
+                // 1. Quét tìm xem có dòng nào id bị NULL không
+                const nullIdRes = await pool.query(`SELECT COUNT(*) FROM users WHERE id IS NULL`);
+                const nullCount = parseInt(nullIdRes.rows[0].count);
+                if (nullCount > 0) {
+                    console.log(`⚠️ Phát hiện ${nullCount} người dùng bị NULL id. Đang tự động sửa...`);
+                    // Gán tạm id theo sequence
+                    await pool.query(`
+                        UPDATE users 
+                        SET id = nextval(pg_get_serial_sequence('users', 'id'))
+                        WHERE id IS NULL;
+                    `);
+                    console.log('✅ Đã sửa các id bị NULL.');
+                }
+
+                // 2. Kiểm tra xem có id nào bị trùng lặp không (nếu thiếu constraint PRIMARY KEY)
+                const dupIdRes = await pool.query(`
+                    SELECT id, COUNT(*) 
+                    FROM users 
+                    GROUP BY id 
+                    HAVING COUNT(*) > 1
+                `);
+                if (dupIdRes.rows.length > 0) {
+                    console.log(`⚠️ Phát hiện ${dupIdRes.rows.length} id bị trùng lặp trong bảng users! Đang tự động phân bổ lại id...`);
+                    // Phân bổ lại id cho các dòng trùng lặp (chỉ giữ lại 1 dòng có id cũ, các dòng khác update lên id mới)
+                    for (const row of dupIdRes.rows) {
+                        const targetId = row.id;
+                        // Lấy danh sách các ctid của các dòng trùng lặp
+                        const rowsRes = await pool.query(`SELECT ctid FROM users WHERE id = $1`, [targetId]);
+                        // Giữ dòng đầu tiên, các dòng sau update
+                        for (let i = 1; i < rowsRes.rows.length; i++) {
+                            const ctid = rowsRes.rows[i].ctid;
+                            await pool.query(`
+                                UPDATE users 
+                                SET id = nextval(pg_get_serial_sequence('users', 'id'))
+                                WHERE ctid = $1;
+                            `, [ctid]);
+                        }
+                    }
+                    console.log('✅ Đã phân bổ lại các id trùng lặp thành công.');
+                }
+
+                // 3. Đồng bộ hóa generator sequence cho users(id) để tránh lỗi trùng lặp khi insert mới
+                await pool.query(`
+                    SELECT setval(
+                        pg_get_serial_sequence('users', 'id'), 
+                        COALESCE((SELECT MAX(id) FROM users), 0)
+                    );
+                `);
+                console.log('✅ Migration users id sequence: Đã đồng bộ hóa sequence generator thành công.');
+            } catch (userKeyErr) {
+                console.error('❌ Migration users keys/id gặp lỗi:', userKeyErr.message);
+            }
+
             // Tự động kiểm tra/thêm cột is_featured vào bảng articles nếu chưa có
             try {
                 await pool.query(`
