@@ -34,14 +34,24 @@ const alphabets = {
   articles: getShuffledAlphabet('smart_digital_library_articles_salt_2026')
 };
 
+// Sử dụng các offset lớn để đảm bảo độ dài tối thiểu của chuỗi mã hóa (Books/Articles: 5 ký tự, Orders: 6 ký tự)
+const OFFSETS = {
+  books: 1000000,      // Đảm bảo tối thiểu 5 ký tự
+  articles: 1000000,   // Đảm bảo tối thiểu 5 ký tự
+  orders: 400000000    // Đảm bảo tối thiểu 6 ký tự
+};
+
 // Hàm mã hóa chung sang cơ số 52 (chỉ gồm chữ cái để tránh trùng lặp với số nguyên gốc)
 function encode(num, type) {
   if (num === undefined || num === null) return '';
   const parsed = parseInt(num);
   if (isNaN(parsed) || parsed < 0) return '';
   
+  const offset = OFFSETS[type] || 0;
+  const nToEncode = parsed + offset;
+  
   const shuffled = alphabets[type] || ALPHABET;
-  let n = parsed;
+  let n = nToEncode;
   let result = '';
   const base = shuffled.length;
   
@@ -62,18 +72,43 @@ function decode(str, type) {
     return parseInt(str);
   }
   
+  // Đối với đơn hàng, nếu chuỗi chứa dấu gạch ngang (VD: '260605-aBcDeF'), tách lấy phần Hashid phía sau
+  let cleanStr = str;
+  if (type === 'orders' && str.includes('-')) {
+    const parts = str.split('-');
+    cleanStr = parts[parts.length - 1];
+  }
+  
   const shuffled = alphabets[type] || ALPHABET;
   const base = shuffled.length;
   let num = 0;
   
-  for (let i = 0; i < str.length; i++) {
-    const char = str[i];
+  for (let i = 0; i < cleanStr.length; i++) {
+    const char = cleanStr[i];
     const index = shuffled.indexOf(char);
     if (index === -1) return NaN; // Ký tự lạ không có trong bảng chữ cái
     num = num * base + index;
   }
   
-  return num;
+  const offset = OFFSETS[type] || 0;
+  const decodedVal = num - offset;
+  if (decodedVal < 0) {
+    // Nếu kết quả nhỏ hơn 0, có thể đây là chuỗi hash kiểu cũ không sử dụng offset
+    return num;
+  }
+  return decodedVal;
+}
+
+// Hàm mã hóa riêng cho Đơn hàng, thêm tiền tố ngày đặt hàng (YYMMDD-)
+function encodeOrderIdWithDate(id, createdAt) {
+  const hash = encode(id, 'orders');
+  const date = createdAt ? new Date(createdAt) : new Date();
+  
+  const yy = String(date.getFullYear()).slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  
+  return `${yy}${mm}${dd}-${hash}`;
 }
 
 module.exports = {
@@ -82,7 +117,7 @@ module.exports = {
   decodeBookId: (hash) => decode(hash, 'books'),
   
   // Đơn hàng (Orders)
-  encodeOrderId: (id) => encode(id, 'orders'),
+  encodeOrderId: (id, createdAt) => encodeOrderIdWithDate(id, createdAt),
   decodeOrderId: (hash) => decode(hash, 'orders'),
   
   // Bài viết (Articles)

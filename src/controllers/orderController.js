@@ -6,7 +6,7 @@ const { encodeOrderId, encodeBookId } = require('../utils/hashids');
 
 function formatOrder(order) {
     if (!order) return null;
-    const formatted = { ...order, hashId: encodeOrderId(order.id) };
+    const formatted = { ...order, hashId: encodeOrderId(order.id, order.created_at) };
     if (Array.isArray(formatted.items)) {
         formatted.items = formatted.items.map(item => ({
             ...item,
