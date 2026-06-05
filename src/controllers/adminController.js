@@ -1,5 +1,6 @@
 const pool = require('../config/database');
 const User = require('../models/User');
+const { encodeOrderId } = require('../utils/hashids');
 
 class AdminController {
     // ==========================================
@@ -49,8 +50,12 @@ class AdminController {
             query += ` LIMIT $${params.length - 1} OFFSET $${params.length}`;
 
             const result = await pool.query(query, params);
+            const formattedOrders = result.rows.map(row => ({
+                ...row,
+                hashId: encodeOrderId(row.id, row.created_at)
+            }));
 
-            res.status(200).json({ data: result.rows });
+            res.status(200).json({ data: formattedOrders });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
