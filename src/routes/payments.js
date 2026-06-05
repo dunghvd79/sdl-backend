@@ -1,8 +1,19 @@
 const express = require('express');
 const paymentController = require('../controllers/paymentController');
 const { verifyToken } = require('../middleware/auth');
+const { decodeOrderId } = require('../utils/hashids');
 
 const router = express.Router();
+
+// Tự động giải mã Hashid nếu có trong param :orderId
+router.param('orderId', (req, res, next, orderId) => {
+    const decoded = decodeOrderId(orderId);
+    if (isNaN(decoded)) {
+        return res.status(400).json({ error: 'Mã đơn hàng không hợp lệ!' });
+    }
+    req.params.orderId = decoded;
+    next();
+});
 
 // 1. API lấy link thanh toán (Người dùng gọi - CẦN ĐĂNG NHẬP)
 router.get('/url/:orderId', verifyToken, paymentController.getPaymentUrl);

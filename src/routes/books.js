@@ -5,8 +5,19 @@ const express = require('express');
 const bookController = require('../controllers/bookController');
 const reviewController = require('../controllers/reviewController');
 const { verifyToken, requireRole } = require('../middleware/auth');
+const { decodeBookId } = require('../utils/hashids');
 
 const router = express.Router();
+
+// Tự động giải mã Hashid nếu có trong param :id
+router.param('id', (req, res, next, id) => {
+    const decoded = decodeBookId(id);
+    if (isNaN(decoded)) {
+        return res.status(400).json({ error: 'Mã sách không hợp lệ!' });
+    }
+    req.params.id = decoded;
+    next();
+});
 
 // Public (Ai cũng xem được)
 router.get('/', bookController.getAllBooks);

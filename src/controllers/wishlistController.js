@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { encodeBookId, decodeBookId } = require('../utils/hashids');
 
 class WishlistController {
     // POST /api/wishlists/toggle
@@ -11,8 +12,13 @@ class WishlistController {
                 return res.status(400).json({ error: 'Mã sách (bookId) không được để trống!' });
             }
 
+            let targetBookId = bookId;
+            if (typeof bookId === 'string' && isNaN(bookId)) {
+                targetBookId = decodeBookId(bookId);
+            }
+
             // 1. Kiểm tra xem sách có tồn tại không
-            const bookCheck = await pool.query('SELECT id FROM books WHERE id = $1', [bookId]);
+            const bookCheck = await pool.query('SELECT id FROM books WHERE id = $1', [targetBookId]);
             if (bookCheck.rows.length === 0) {
                 return res.status(404).json({ error: 'Không tìm thấy sách!' });
             }
@@ -20,7 +26,7 @@ class WishlistController {
             // 2. Kiểm tra xem đã thả tim chưa
             const checkRes = await pool.query(
                 'SELECT id FROM wishlists WHERE user_id = $1 AND book_id = $2',
-                [userId, bookId]
+                [userId, targetBookId]
             );
 
             let isLiked = false;
@@ -28,14 +34,14 @@ class WishlistController {
                 // Đã có -> Xóa đi (Unlike)
                 await pool.query(
                     'DELETE FROM wishlists WHERE user_id = $1 AND book_id = $2',
-                    [userId, bookId]
+                    [userId, targetBookId]
                 );
                 isLiked = false;
             } else {
                 // Chưa có -> Thêm mới (Like)
                 await pool.query(
                     'INSERT INTO wishlists (user_id, book_id) VALUES ($1, $2)',
-                    [userId, bookId]
+                    [userId, targetBookId]
                 );
                 isLiked = true;
             }
@@ -62,7 +68,7 @@ class WishlistController {
                 ORDER BY w.created_at DESC
             `, [userId]);
 
-            res.status(200).json({ data: result.rows });
+            res.status(200).json({ data: result.rows.map(b => ({ ...b, hashId: encodeBookId(b.id) })) });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -80,7 +86,7 @@ class WishlistController {
                 LIMIT 20
             `);
 
-            res.status(200).json({ data: result.rows });
+            res.status(200).json({ data: result.rows.map(b => ({ ...b, hashId: encodeBookId(b.id) })) });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

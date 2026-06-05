@@ -1,8 +1,19 @@
 const express = require('express');
 const articleController = require('../controllers/articleController');
 const { verifyToken, requireRole } = require('../middleware/auth');
+const { decodeArticleId } = require('../utils/hashids');
 
 const router = express.Router();
+
+// Tự động giải mã Hashid nếu có trong param :id
+router.param('id', (req, res, next, id) => {
+    const decoded = decodeArticleId(id);
+    if (isNaN(decoded)) {
+        return res.status(400).json({ error: 'Mã bài viết không hợp lệ!' });
+    }
+    req.params.id = decoded;
+    next();
+});
 
 // Public (Ai cũng xem được)
 router.get('/', articleController.getAllArticles);

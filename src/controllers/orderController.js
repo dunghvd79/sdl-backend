@@ -2,6 +2,19 @@
 // FILE 2: src/controllers/orderController.js
 // ==========================================
 const OrderService = require('../services/orderService');
+const { encodeOrderId, encodeBookId } = require('../utils/hashids');
+
+function formatOrder(order) {
+    if (!order) return null;
+    const formatted = { ...order, hashId: encodeOrderId(order.id) };
+    if (Array.isArray(formatted.items)) {
+        formatted.items = formatted.items.map(item => ({
+            ...item,
+            hashId: encodeBookId(item.bookId)
+        }));
+    }
+    return formatted;
+}
 
 class OrderController {
     // POST /api/orders/checkout
@@ -31,7 +44,7 @@ class OrderController {
 
             res.status(201).json({
                 message: 'Đặt hàng thành công!',
-                data: order
+                data: formatOrder(order)
             });
         } catch (err) {
             res.status(400).json({ error: err.message });
@@ -42,7 +55,7 @@ class OrderController {
     static async getMyOrders(req, res) {
         try {
             const orders = await OrderService.getUserOrders(req.user.id);
-            res.status(200).json({ data: orders });
+            res.status(200).json({ data: orders.map(formatOrder) });
         } catch (err) {
             res.status(500).json({ error: err.message });
         }
@@ -63,7 +76,7 @@ class OrderController {
                 return res.status(403).json({ error: 'Bạn không có quyền truy cập thông tin đơn hàng này!' });
             }
 
-            res.status(200).json({ data: order });
+            res.status(200).json({ data: formatOrder(order) });
         } catch (err) {
             res.status(500).json({ error: err.message });
         }
@@ -80,7 +93,7 @@ class OrderController {
 
             res.status(200).json({
                 message: 'Hủy đơn hàng thành công!',
-                data: updatedOrder
+                data: formatOrder(updatedOrder)
             });
         } catch (err) {
             res.status(400).json({ error: err.message });

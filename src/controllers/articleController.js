@@ -1,4 +1,5 @@
 const Article = require('../models/Article');
+const { encodeArticleId } = require('../utils/hashids');
 
 class ArticleController {
     // GET /api/articles
@@ -16,7 +17,7 @@ class ArticleController {
 
             res.status(200).json({
                 message: 'Lấy danh sách bài viết thành công',
-                data: articles,
+                data: articles.map(a => ({ ...a, hashId: encodeArticleId(a.id) })),
                 pagination: { page, limit, total_in_page: articles.length }
             });
         } catch (err) {
@@ -32,7 +33,7 @@ class ArticleController {
             if (!article) {
                 return res.status(404).json({ error: 'Không tìm thấy bài viết này!' });
             }
-            res.status(200).json({ data: article });
+            res.status(200).json({ data: article ? { ...article, hashId: encodeArticleId(article.id) } : null });
         } catch (err) {
             res.status(500).json({ error: err.message });
         }
@@ -63,7 +64,7 @@ class ArticleController {
 
             res.status(201).json({
                 message: 'Tạo bài viết thành công!',
-                data: article
+                data: article ? { ...article, hashId: encodeArticleId(article.id) } : null
             });
         } catch (err) {
             res.status(500).json({ error: err.message });
@@ -100,7 +101,7 @@ class ArticleController {
 
             res.status(200).json({
                 message: 'Cập nhật bài viết thành công!',
-                data: article
+                data: article ? { ...article, hashId: encodeArticleId(article.id) } : null
             });
         } catch (err) {
             res.status(500).json({ error: err.message });

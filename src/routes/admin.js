@@ -2,6 +2,17 @@ const express = require('express');
 const router = express.Router();
 const AdminController = require('../controllers/adminController');
 const { verifyToken, requireRole } = require('../middleware/auth');
+const { decodeOrderId } = require('../utils/hashids');
+
+// Tự động giải mã Hashid nếu có trong param :orderId
+router.param('orderId', (req, res, next, orderId) => {
+    const decoded = decodeOrderId(orderId);
+    if (isNaN(decoded)) {
+        return res.status(400).json({ error: 'Mã đơn hàng không hợp lệ!' });
+    }
+    req.params.orderId = decoded;
+    next();
+});
 
 // Yêu cầu đăng nhập và có quyền ADMIN hoặc CURATOR (tuỳ theo tab, ở đây ta gom chung là Admin/Curator)
 // Lưu ý: Đổi role chỉ ADMIN mới làm được, nhưng ở đây dùng chung requireRole(['ADMIN', 'CURATOR']) cho route,

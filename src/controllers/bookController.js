@@ -2,6 +2,7 @@
 // FILE 2: src/controllers/bookController.js
 // ==========================================
 const BookService = require('../services/bookService');
+const { encodeBookId } = require('../utils/hashids');
 
 function validateBookInput(data) {
     const { title, author, isbn, description, price, status } = data;
@@ -104,7 +105,7 @@ class BookController {
 
             res.status(200).json({
                 message: 'Lấy danh sách thành công',
-                data: books,
+                data: books.map(book => ({ ...book, hashId: encodeBookId(book.id) })),
                 pagination: { page, limit, total_in_page: books.length }
             });
         } catch (err) {
@@ -131,7 +132,7 @@ class BookController {
 
             res.status(201).json({
                 message: 'Thêm sách thành công!',
-                data: book
+                data: book ? { ...book, hashId: encodeBookId(book.id) } : null
             });
         } catch (err) {
             res.status(400).json({ error: handleDatabaseError(err) });
@@ -146,7 +147,7 @@ class BookController {
             if (!book) {
                 return res.status(404).json({ error: 'Không tìm thấy cuốn sách này' });
             }
-            res.status(200).json({ data: book });
+            res.status(200).json({ data: book ? { ...book, hashId: encodeBookId(book.id) } : null });
         } catch (err) {
             res.status(500).json({ error: err.message });
         }
@@ -206,7 +207,7 @@ class BookController {
 
             res.status(200).json({
                 message: 'Cập nhật sách thành công!',
-                data: result.rows[0]
+                data: result.rows[0] ? { ...result.rows[0], hashId: encodeBookId(result.rows[0].id) } : null
             });
         } catch (err) {
             res.status(500).json({ error: handleDatabaseError(err) });
