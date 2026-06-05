@@ -331,6 +331,48 @@ pool.query('SELECT NOW()', async (err, res) => {
             } catch (artDateErr) {
                 console.error('❌ Migration articles created_at gặp lỗi:', artDateErr.message);
             }
+
+            // Tự động kiểm tra/tạo bảng reviews và bổ sung ràng buộc UNIQUE(book_id, user_id)
+            try {
+                await pool.query(`
+                    CREATE TABLE IF NOT EXISTS reviews (
+                        id SERIAL PRIMARY KEY,
+                        book_id INT REFERENCES books(id) ON DELETE CASCADE,
+                        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+                        rating INT CHECK (rating >= 1 AND rating <= 5) NOT NULL,
+                        comment TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(book_id, user_id)
+                    );
+                `);
+                console.log('✅ Migration: Đã kiểm tra/tạo bảng reviews.');
+
+                // Dọn dẹp trùng lặp
+                const cleanReviewsRes = await pool.query(`
+                    DELETE FROM reviews 
+                    WHERE id NOT IN (
+                        SELECT MAX(id) 
+                        FROM reviews 
+                        GROUP BY book_id, user_id
+                    );
+                `);
+                if (cleanReviewsRes.rowCount > 0) {
+                    console.log(`✅ Migration reviews: Đã dọn dẹp ${cleanReviewsRes.rowCount} đánh giá bị trùng lặp.`);
+                }
+
+                // Thêm ràng buộc UNIQUE nếu chưa có
+                await pool.query(`
+                    ALTER TABLE reviews 
+                    ADD CONSTRAINT unique_book_user_review UNIQUE (book_id, user_id);
+                `);
+                console.log('✅ Migration reviews: Đã đảm bảo ràng buộc UNIQUE (book_id, user_id) cho bảng reviews.');
+            } catch (revErr) {
+                if (revErr.code === '42P16' || revErr.code === '42710' || revErr.message.includes('already exists') || revErr.message.includes('already a unique constraint')) {
+                    console.log('ℹ️ Migration reviews: Ràng buộc UNIQUE cho reviews đã được đảm bảo. Bỏ qua.');
+                } else {
+                    console.error('❌ Migration reviews gặp lỗi:', revErr.message);
+                }
+            }
         } catch (orderErr) {
             console.error('❌ Lỗi kiểm tra/cập nhật bảng orders hoặc coupons:', orderErr.message);
         }

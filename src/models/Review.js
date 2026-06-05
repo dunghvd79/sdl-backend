@@ -19,7 +19,15 @@ class Review {
         const query = `
             SELECT r.*, 
                    COALESCE(up.full_name, u.email) as user_name,
-                   up.avatar_url
+                   up.avatar_url,
+                   EXISTS(
+                       SELECT 1 
+                       FROM orders o
+                       JOIN order_items oi ON o.id = oi.order_id
+                       WHERE o.user_id = r.user_id 
+                         AND oi.book_id = r.book_id 
+                         AND o.status = 'DELIVERED'
+                   ) as is_verified_purchase
             FROM reviews r
             JOIN users u ON r.user_id = u.id
             LEFT JOIN user_profiles up ON u.id = up.user_id

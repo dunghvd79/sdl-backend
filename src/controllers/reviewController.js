@@ -33,6 +33,10 @@ class ReviewController {
                 return res.status(400).json({ error: 'Đánh giá phải từ 1 đến 5 sao!' });
             }
 
+            if (!comment || comment.trim().length < 10) {
+                return res.status(400).json({ error: 'Nội dung nhận xét phải có ít nhất 10 ký tự!' });
+            }
+
             const review = await Review.create({
                 bookId: id,
                 userId,
