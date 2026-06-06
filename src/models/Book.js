@@ -18,7 +18,7 @@ class Book {
     static async findById(id) {
         const query = `
             SELECT b.*, 
-                   COALESCE(i.available_qty, 0) as available_qty,
+                   (COALESCE(i.available_qty, 0) - COALESCE(i.reserved_qty, 0)) as available_qty,
                    COALESCE(i.reserved_qty, 0) as reserved_qty,
                    (
                        SELECT COALESCE(json_agg(json_build_object('id', cat.id, 'name', cat.name)), '[]')
@@ -56,7 +56,7 @@ class Book {
     static async getAll({ limit = 10, offset = 0, search = '', categoryId, sortBy = 'newest', maxPrice, adminMode = false, isFeatured }) {
         let query = `
       SELECT b.*, 
-             COALESCE(i.available_qty, 0) as available_qty,
+             (COALESCE(i.available_qty, 0) - COALESCE(i.reserved_qty, 0)) as available_qty,
              COALESCE(i.reserved_qty, 0) as reserved_qty,
              -- Gom các danh mục của sách này thành một mảng JSON dùng subquery để tránh lỗi GROUP BY của PostgreSQL
              (
