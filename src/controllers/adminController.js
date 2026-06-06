@@ -163,27 +163,34 @@ class AdminController {
         try {
             const { search, role } = req.query;
             let query = `
-                SELECT id, email, full_name, role, is_active, created_at 
-                FROM users 
+                SELECT u.id, u.email, u.full_name, u.role, u.is_active, u.created_at,
+                       COALESCE(o.order_count, 0)::int AS order_count,
+                       COALESCE(o.total_spent, 0)::numeric AS total_spent
+                FROM users u
+                LEFT JOIN (
+                    SELECT user_id, COUNT(*)::int AS order_count, SUM(total_amount)::numeric AS total_spent
+                    FROM orders
+                    GROUP BY user_id
+                ) o ON u.id = o.user_id
             `;
             const params = [];
             const conditions = [];
 
             if (search) {
                 params.push(`%${search}%`);
-                conditions.push(`(email ILIKE $${params.length} OR full_name ILIKE $${params.length})`);
+                conditions.push(`(u.email ILIKE $${params.length} OR u.full_name ILIKE $${params.length})`);
             }
 
             if (role) {
                 params.push(role);
-                conditions.push(`role = $${params.length}`);
+                conditions.push(`u.role = $${params.length}`);
             }
 
             if (conditions.length > 0) {
                 query += ` WHERE ` + conditions.join(' AND ');
             }
 
-            query += ` ORDER BY created_at DESC`;
+            query += ` ORDER BY u.created_at DESC`;
 
             const result = await pool.query(query, params);
             res.status(200).json({ data: result.rows });
