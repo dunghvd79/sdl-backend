@@ -38,6 +38,22 @@ class Review {
         return result.rows;
     }
 
+    // Kiểm tra xem người dùng đã mua sách thành công chưa (DELIVERED)
+    static async hasPurchased(userId, bookId) {
+        const query = `
+            SELECT EXISTS(
+                SELECT 1 
+                FROM orders o
+                JOIN order_items oi ON o.id = oi.order_id
+                WHERE o.user_id = $1 
+                  AND oi.book_id = $2 
+                  AND o.status = 'DELIVERED'
+            ) as purchased
+        `;
+        const result = await pool.query(query, [userId, bookId]);
+        return result.rows[0]?.purchased || false;
+    }
+
     // Tính điểm trung bình cộng số sao và tổng số đánh giá
     static async getStats(bookId) {
         const query = `

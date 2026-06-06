@@ -366,6 +366,16 @@ pool.query('SELECT NOW()', async (err, res) => {
                     ADD CONSTRAINT unique_book_user_review UNIQUE (book_id, user_id);
                 `);
                 console.log('✅ Migration reviews: Đã đảm bảo ràng buộc UNIQUE (book_id, user_id) cho bảng reviews.');
+
+                // Quét cập nhật các dòng đang bị NULL về thời gian hiện tại
+                const revUpdate = await pool.query(`
+                    UPDATE reviews 
+                    SET created_at = CURRENT_TIMESTAMP 
+                    WHERE created_at IS NULL;
+                `);
+                if (revUpdate.rowCount > 0) {
+                    console.log(`✅ Migration reviews: Đã tự động cập nhật created_at từ NULL về CURRENT_TIMESTAMP cho ${revUpdate.rowCount} đánh giá.`);
+                }
             } catch (revErr) {
                 if (revErr.code === '42P16' || revErr.code === '42710' || revErr.message.includes('already exists') || revErr.message.includes('already a unique constraint')) {
                     console.log('ℹ️ Migration reviews: Ràng buộc UNIQUE cho reviews đã được đảm bảo. Bỏ qua.');

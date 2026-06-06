@@ -37,6 +37,15 @@ class ReviewController {
                 return res.status(400).json({ error: 'Nội dung nhận xét phải có ít nhất 10 ký tự!' });
             }
 
+            // Kiểm tra quyền mua hàng (bỏ qua cho ADMIN và CURATOR)
+            const isEmployee = req.user.role === 'ADMIN' || req.user.role === 'CURATOR';
+            if (!isEmployee) {
+                const purchased = await Review.hasPurchased(userId, id);
+                if (!purchased) {
+                    return res.status(403).json({ error: 'Bạn chỉ có thể đánh giá cuốn sách này sau khi đã mua và nhận giao hàng thành công!' });
+                }
+            }
+
             const review = await Review.create({
                 bookId: id,
                 userId,
