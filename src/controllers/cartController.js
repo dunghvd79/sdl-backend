@@ -91,8 +91,23 @@ class CartController {
     // POST /api/cart/checkout
     static async prepareCheckout(req, res) {
         try {
-            const result = await CartService.prepareCheckout(req.user.id);
+            const { selectedBookIds } = req.body;
+            const result = await CartService.prepareCheckout(req.user.id, selectedBookIds);
             res.status(200).json(result);
+        } catch (err) {
+            res.status(400).json({ error: err.message });
+        }
+    }
+
+    // POST /api/cart/remove-bulk
+    static async removeBulkFromCart(req, res) {
+        try {
+            const { bookIds } = req.body;
+            if (!bookIds || !Array.isArray(bookIds) || bookIds.length === 0) {
+                return res.status(400).json({ error: 'Danh sách mã sách (bookIds) không hợp lệ!' });
+            }
+            await CartService.removeBulkFromCart(req.user.id, bookIds);
+            res.status(200).json({ message: 'Đã xóa các sách khỏi giỏ hàng' });
         } catch (err) {
             res.status(400).json({ error: err.message });
         }

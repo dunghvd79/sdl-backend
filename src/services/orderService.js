@@ -8,7 +8,7 @@ const Inventory = require('../models/Inventory');
 
 class OrderService {
     // Biến Giỏ hàng thành Đơn hàng
-    static async checkout(userId, shippingInfo = {}, paymentMethod = 'ONLINE', couponCode = null) {
+    static async checkout(userId, shippingInfo = {}, paymentMethod = 'ONLINE', couponCode = null, selectedBookIds = null) {
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
@@ -19,9 +19,25 @@ class OrderService {
                 throw new Error('Giỏ hàng trống, không thể thanh toán!');
             }
 
+            let itemsToOrder = cart.items;
+            if (selectedBookIds && Array.isArray(selectedBookIds) && selectedBookIds.length > 0) {
+                const { decodeBookId } = require('../utils/hashids');
+                const decodedIds = selectedBookIds.map(id => {
+                    if (typeof id === 'string' && isNaN(id)) {
+                        return decodeBookId(id);
+                    }
+                    return parseInt(id);
+                });
+                itemsToOrder = cart.items.filter(item => decodedIds.includes(item.bookId));
+            }
+
+            if (!itemsToOrder || itemsToOrder.length === 0) {
+                throw new Error('Không có sản phẩm nào được chọn để thanh toán!');
+            }
+
             // 2. Tính tổng tiền của cả đơn hàng
             let totalAmount = 0;
-            for (const item of cart.items) {
+            for (const item of itemsToOrder) {
                 totalAmount += item.priceAtAdd * item.quantity;
             }
 
@@ -99,7 +115,7 @@ class OrderService {
             );
 
             // 5. Chép từng món từ Giỏ hàng sang Hóa đơn (Vào bảng order_items) - sử dụng client
-            for (const item of cart.items) {
+            for (const item of itemsToOrder) {
                 await Order.addItem(client, order.id, item.bookId, item.quantity, item.priceAtAdd);
                 // Giữ chỗ sách trong kho thực tế khi đơn hàng được đặt (trạng thái PENDING)
                 await Inventory.hold(client, item.bookId, item.quantity);
@@ -107,7 +123,8 @@ class OrderService {
 
             // 6. Xóa sạch giỏ hàng sau khi đã chốt đơn thành công! (Nếu là COD)
             if (paymentMethod === 'COD') {
-                await Cart.clear(cart.id);
+                const bookIdsToRemove = itemsToOrder.map(item => item.bookId);
+                await Cart.removeItems(cart.id, bookIdsToRemove, client);
             }
 
             await client.query('COMMIT');

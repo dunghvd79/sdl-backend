@@ -64,14 +64,30 @@ class CartService {
     }
 
     // Bắt đầu Thanh toán (Kiểm tra sẵn có của hàng trong kho)
-    static async prepareCheckout(userId) {
+    static async prepareCheckout(userId, selectedBookIds = null) {
         const cart = await Cart.getByUserId(userId);
         if (!cart || !cart.items || cart.items.length === 0) {
             throw new Error('Giỏ hàng của bạn đang trống');
         }
 
+        let itemsToCheck = cart.items;
+        if (selectedBookIds && Array.isArray(selectedBookIds) && selectedBookIds.length > 0) {
+            const { decodeBookId } = require('../utils/hashids');
+            const decodedIds = selectedBookIds.map(id => {
+                if (typeof id === 'string' && isNaN(id)) {
+                    return decodeBookId(id);
+                }
+                return parseInt(id);
+            });
+            itemsToCheck = cart.items.filter(item => decodedIds.includes(item.bookId));
+        }
+
+        if (itemsToCheck.length === 0) {
+            throw new Error('Vui lòng chọn ít nhất một sản phẩm để thanh toán');
+        }
+
         // Chỉ kiểm tra tồn kho xem còn đủ không chứ KHÔNG giữ kho sớm (tránh rò rỉ)
-        for (const item of cart.items) {
+        for (const item of itemsToCheck) {
             const isAvailable = await Inventory.checkAvailability(item.bookId, item.quantity);
             if (!isAvailable) {
                 const book = await Book.findById(item.bookId);
@@ -80,6 +96,13 @@ class CartService {
             }
         }
         return { message: 'Sẵn sàng tạo Đơn hàng', cart };
+    }
+
+    // Xóa nhiều sản phẩm khỏi giỏ hàng
+    static async removeBulkFromCart(userId, bookIds) {
+        const cart = await Cart.getByUserId(userId);
+        if (!cart) throw new Error('Giỏ hàng trống');
+        await Cart.removeItems(cart.id, bookIds);
     }
 }
 

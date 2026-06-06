@@ -20,13 +20,16 @@ class OrderController {
     // POST /api/orders/checkout
     static async checkout(req, res) {
         try {
-            const { shippingName, shippingPhone, shippingAddress, shippingNotes, paymentMethod, couponCode } = req.body;
+            const { shippingName, shippingPhone, shippingAddress, shippingNotes, paymentMethod, couponCode, selectedBookIds } = req.body;
 
             if (!shippingName || shippingName.trim() === '') {
                 return res.status(400).json({ error: 'Họ tên người nhận không được để trống' });
             }
             if (!shippingPhone || shippingPhone.trim() === '') {
                 return res.status(400).json({ error: 'Số điện thoại nhận hàng không được để trống' });
+            }
+            if (!shippingPhone.trim().match(/^(0|\+84)[3|5|7|8|9][0-9]{8}$/)) {
+                return res.status(400).json({ error: 'Số điện thoại không hợp lệ' });
             }
             if (!shippingAddress || shippingAddress.trim() === '') {
                 return res.status(400).json({ error: 'Địa chỉ giao hàng không được để trống' });
@@ -40,7 +43,7 @@ class OrderController {
                 shippingPhone: shippingPhone.trim(),
                 shippingAddress: shippingAddress.trim(),
                 shippingNotes: shippingNotes ? shippingNotes.trim() : ''
-            }, paymentMethod, couponCode);
+            }, paymentMethod, couponCode, selectedBookIds);
 
             res.status(201).json({
                 message: 'Đặt hàng thành công!',

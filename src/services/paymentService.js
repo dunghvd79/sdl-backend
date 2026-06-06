@@ -116,8 +116,8 @@ class PaymentService {
             const order = await Order.findById(orderId);
             if (order && order.user_id) {
                 const cart = await Cart.getByUserId(order.user_id);
-                if (cart) {
-                    await Cart.clear(cart.id);
+                if (cart && order.items && order.items.length > 0) {
+                    await Cart.removeItems(cart.id, order.items.map(item => item.bookId));
                 }
             }
 
@@ -165,8 +165,8 @@ class PaymentService {
             const order = await Order.findById(orderId);
             if (order && order.user_id) {
                 const cart = await Cart.getByUserId(order.user_id);
-                if (cart) {
-                    await Cart.clear(cart.id);
+                if (cart && order.items && order.items.length > 0) {
+                    await Cart.removeItems(cart.id, order.items.map(item => item.bookId));
                 }
             }
 
@@ -309,8 +309,8 @@ MÃ BĂM SECURE HASH TẠO RA: "${secureHash}"
             if (order && order.user_id) {
                 const Cart = require('../models/Cart');
                 const cart = await Cart.getByUserId(order.user_id);
-                if (cart) {
-                    await Cart.clear(cart.id);
+                if (cart && order.items && order.items.length > 0) {
+                    await Cart.removeItems(cart.id, order.items.map(item => item.bookId));
                 }
             }
 

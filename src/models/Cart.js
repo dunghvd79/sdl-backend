@@ -19,12 +19,14 @@ class Cart {
                   'title', b.title,
                   'author', b.author,
                   'price', b.price,
-                  'cover_url', b.cover_url
+                  'cover_url', b.cover_url,
+                  'stock', COALESCE(inv.available_qty - inv.reserved_qty, 10)
                 )
               )
             )
             FROM cart_items ci
             LEFT JOIN books b ON ci.book_id = b.id
+            LEFT JOIN inventory inv ON ci.book_id = inv.book_id
             WHERE ci.cart_id = c.id
           ), '[]'::json
         ) as items
@@ -66,6 +68,16 @@ class Cart {
     static async clear(cartId) {
         const query = 'DELETE FROM cart_items WHERE cart_id = $1';
         await pool.query(query, [cartId]);
+    }
+
+    // Xóa một số quyển sách được chọn khỏi giỏ
+    static async removeItems(cartId, bookIds, client = null) {
+        if (!bookIds || bookIds.length === 0) return;
+        const intBookIds = bookIds.map(id => parseInt(id)).filter(id => !isNaN(id));
+        if (intBookIds.length === 0) return;
+        const query = 'DELETE FROM cart_items WHERE cart_id = $1 AND book_id = ANY($2::int[])';
+        const executor = client || pool;
+        await executor.query(query, [cartId, intBookIds]);
     }
 }
 

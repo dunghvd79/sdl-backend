@@ -11,6 +11,7 @@ router.get('/', cartController.getCart);
 router.post('/add', cartController.addToCart);
 router.post('/add-batch', cartController.addBatchToCart);
 router.delete('/remove/:bookId', cartController.removeFromCart);
+router.post('/remove-bulk', cartController.removeBulkFromCart);
 router.post('/checkout', cartController.prepareCheckout);
 
 module.exports = router;
