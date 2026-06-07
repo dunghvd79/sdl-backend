@@ -32,8 +32,11 @@ const verifyToken = async (req, res, next) => {
             return res.status(403).json({ error: 'Tài khoản của bạn đã bị khóa bởi quản trị viên!' });
         }
 
-        // Gắn thông tin user giải mã được vào request để các hàm sau sử dụng
-        req.user = decoded;
+        // Gắn thông tin user giải mã được vào request để các hàm sau sử dụng, đảm bảo quyền (role) luôn mới nhất từ Database
+        req.user = {
+            ...decoded,
+            role: dbUser.role
+        };
         next(); // Cho phép đi tiếp
     } catch (err) {
         res.status(500).json({ error: err.message });
