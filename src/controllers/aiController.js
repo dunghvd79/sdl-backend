@@ -8,11 +8,18 @@ class AiController {
     // POST /api/ai/ask
     static async ask(req, res) {
         try {
-            const { bookId, question } = req.body;
+            let { bookId, question } = req.body;
 
             if (!bookId || !question) {
                 return res.status(400).json({ error: 'Vui lòng cung cấp mã sách (bookId) và câu hỏi (question)!' });
             }
+
+            const { decodeBookId } = require('../utils/hashids');
+            const decodedBookId = decodeBookId(bookId);
+            if (isNaN(decodedBookId)) {
+                return res.status(400).json({ error: 'Mã sách không hợp lệ!' });
+            }
+            bookId = decodedBookId;
 
             const pool = require('../config/database');
 
@@ -78,8 +85,15 @@ class AiController {
     // GET /api/ai/chats/:bookId/history
     static async getChatHistory(req, res) {
         try {
-            const { bookId } = req.params;
+            let { bookId } = req.params;
             const userId = req.user.id;
+
+            const { decodeBookId } = require('../utils/hashids');
+            const decodedBookId = decodeBookId(bookId);
+            if (isNaN(decodedBookId)) {
+                return res.status(400).json({ error: 'Mã sách không hợp lệ!' });
+            }
+            bookId = decodedBookId;
 
             const pool = require('../config/database');
 
@@ -109,11 +123,18 @@ class AiController {
     // Nhận file PDF từ Admin -> Forward sang FastAPI để vector hóa
     static async uploadBookPDF(req, res) {
         try {
-            const { bookId } = req.params;
+            let { bookId } = req.params;
 
             if (!req.file) {
                 return res.status(400).json({ error: 'Chưa có file PDF được tải lên!' });
             }
+
+            const { decodeBookId } = require('../utils/hashids');
+            const decodedBookId = decodeBookId(bookId);
+            if (isNaN(decodedBookId)) {
+                return res.status(400).json({ error: 'Mã sách không hợp lệ!' });
+            }
+            bookId = decodedBookId;
 
             // Kiểm tra định dạng file (chỉ chấp nhận PDF)
             if (req.file.mimetype !== 'application/pdf') {
