@@ -102,6 +102,23 @@ class OrderController {
             res.status(400).json({ error: err.message });
         }
     }
+
+    // PUT /api/orders/:id/change-to-cod
+    static async changeToCod(req, res) {
+        try {
+            const { id } = req.params;
+            const userId = req.user.id;
+
+            const updatedOrder = await OrderService.changeToCod(id, userId);
+
+            res.status(200).json({
+                message: 'Chuyển phương thức thanh toán sang COD thành công!',
+                data: formatOrder(updatedOrder)
+            });
+        } catch (err) {
+            res.status(400).json({ error: err.message });
+        }
+    }
 }
 
 module.exports = OrderController;

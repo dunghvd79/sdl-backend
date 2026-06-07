@@ -21,9 +21,22 @@ router.param('id', (req, res, next, id) => {
 // Tất cả API liên quan đến đơn hàng đều BẮT BUỘC ĐĂNG NHẬP
 router.use(verifyToken);
 
-router.post('/checkout', orderController.checkout);
-router.get('/', orderController.getMyOrders);
-router.get('/:id', orderController.getOrderDetails);
+const OrderService = require('../services/orderService');
+
+// Middleware quét lười biếng đơn hàng hết hạn
+const lazyCancelExpired = async (req, res, next) => {
+    try {
+        await OrderService.checkAndCancelExpiredOrders();
+    } catch (err) {
+        console.error('❌ Lỗi Lazy Check đơn hàng hết hạn:', err.message);
+    }
+    next();
+};
+
+router.post('/checkout', lazyCancelExpired, orderController.checkout);
+router.get('/', lazyCancelExpired, orderController.getMyOrders);
+router.get('/:id', lazyCancelExpired, orderController.getOrderDetails);
 router.put('/:id/cancel', orderController.cancelOrder);
+router.put('/:id/change-to-cod', orderController.changeToCod);
 
 module.exports = router;

@@ -29,6 +29,7 @@ class Order {
     static async getUserOrders(userId) {
         const query = `
       SELECT o.*,
+        (SELECT p.status FROM payments p WHERE p.order_id = o.id ORDER BY p.created_at DESC LIMIT 1) as payment_status,
         -- Gom các món hàng trong đơn thành mảng JSON để Frontend dễ đọc
         COALESCE(
           (
@@ -59,6 +60,7 @@ class Order {
     static async findById(orderId) {
         const query = `
       SELECT o.*, u.full_name, u.email, c.code as coupon_code,
+        (SELECT p.status FROM payments p WHERE p.order_id = o.id ORDER BY p.created_at DESC LIMIT 1) as payment_status,
         COALESCE(
           (
             SELECT json_agg(
