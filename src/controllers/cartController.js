@@ -106,7 +106,15 @@ class CartController {
             if (!bookIds || !Array.isArray(bookIds) || bookIds.length === 0) {
                 return res.status(400).json({ error: 'Danh sách mã sách (bookIds) không hợp lệ!' });
             }
-            await CartService.removeBulkFromCart(req.user.id, bookIds);
+
+            const decodedBookIds = bookIds.map(id => {
+                if (typeof id === 'string' && isNaN(id)) {
+                    return decodeBookId(id);
+                }
+                return parseInt(id);
+            }).filter(id => !isNaN(id));
+
+            await CartService.removeBulkFromCart(req.user.id, decodedBookIds);
             res.status(200).json({ message: 'Đã xóa các sách khỏi giỏ hàng' });
         } catch (err) {
             res.status(400).json({ error: err.message });
