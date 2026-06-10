@@ -3,6 +3,7 @@
 // Nhiệm vụ: Chứa Logic nghiệp vụ (Kiểm tra trùng email, Tạo JWT...)
 // ==========================================
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 
 class AuthService {
@@ -17,8 +18,10 @@ class AuthService {
         // 2. Tạo user mới
         const user = await User.create({ email, password, fullName });
 
-        // 3. Tạo Token
-        const token = this.generateToken(user);
+        // 3. Tạo Token và Session ID
+        const sessionId = crypto.randomUUID();
+        await User.updateSessionId(user.id, sessionId);
+        const token = this.generateToken(user, sessionId);
 
         return { user, token };
     }
@@ -41,8 +44,10 @@ class AuthService {
             throw new Error('Email hoặc mật khẩu không chính xác!');
         }
 
-        // 3. Đăng nhập thành công -> Tạo token
-        const token = this.generateToken(user);
+        // 3. Đăng nhập thành công -> Tạo token với Session ID mới
+        const sessionId = crypto.randomUUID();
+        await User.updateSessionId(user.id, sessionId);
+        const token = this.generateToken(user, sessionId);
 
         return {
             user: {
@@ -56,12 +61,13 @@ class AuthService {
     }
 
     // Hàm hỗ trợ: Sinh mã JWT
-    static generateToken(user) {
+    static generateToken(user, sessionId) {
         return jwt.sign(
             {
                 id: user.id,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                sessionId: sessionId
             },
             process.env.JWT_SECRET, // Lấy Secret Key từ file .env
             { expiresIn: process.env.JWT_EXPIRY }

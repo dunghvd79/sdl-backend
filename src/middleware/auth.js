@@ -28,6 +28,11 @@ const verifyToken = async (req, res, next) => {
             return res.status(401).json({ error: 'Tài khoản không tồn tại!' });
         }
 
+        // Kiểm tra session ID để đảm bảo duy nhất 1 phiên đăng nhập hoạt động (Level B Session)
+        if (decoded.sessionId !== dbUser.session_id) {
+            return res.status(401).json({ error: 'Tài khoản đã được đăng nhập ở nơi khác. Bạn đã bị đăng xuất!' });
+        }
+
         if (dbUser.is_active === false) {
             return res.status(403).json({ error: 'Tài khoản của bạn đã bị khóa bởi quản trị viên!' });
         }

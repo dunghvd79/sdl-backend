@@ -199,6 +199,17 @@ pool.query('SELECT NOW()', async (err, res) => {
                 console.error('❌ Migration users timestamps gặp lỗi:', userErr.message);
             }
 
+            // Tự động kiểm tra/thêm cột session_id vào bảng users nếu chưa có
+            try {
+                await pool.query(`
+                    ALTER TABLE users 
+                    ADD COLUMN IF NOT EXISTS session_id VARCHAR(255);
+                `);
+                console.log('✅ Migration: Đã kiểm tra/thêm cột session_id vào bảng users.');
+            } catch (sessionColErr) {
+                console.error('❌ Migration users session_id gặp lỗi:', sessionColErr.message);
+            }
+
             // Tự động kiểm tra và sửa lỗi id bị NULL hoặc trùng lặp trên bảng users (tự phục hồi dữ liệu)
             try {
                 // 1. Quét tìm xem có dòng nào id bị NULL không

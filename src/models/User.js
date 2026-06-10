@@ -29,9 +29,16 @@ class User {
 
     // Tìm user theo ID
     static async findById(id) {
-        const query = 'SELECT id, email, full_name, phone, address, role, is_active, created_at FROM users WHERE id = $1';
+        const query = 'SELECT id, email, full_name, phone, address, role, is_active, session_id, created_at FROM users WHERE id = $1';
         const result = await pool.query(query, [id]);
         return result.rows[0] || null;
+    }
+
+    // Cập nhật session_id của user
+    static async updateSessionId(userId, sessionId) {
+        const query = 'UPDATE users SET session_id = $1 WHERE id = $2 RETURNING id, session_id';
+        const result = await pool.query(query, [sessionId, userId]);
+        return result.rows[0];
     }
 
     // Cập nhật thông tin cá nhân mở rộng (Họ tên, SĐT, Địa chỉ)

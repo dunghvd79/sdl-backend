@@ -3,7 +3,7 @@
 > **Dự án:** Smart Digital Library (SDL) - Phân hệ Backend API  
 > **Cập nhật lần cuối:** 06/2026  
 > **Backend API Production URL:** [https://sdl-backend.onrender.com](https://sdl-backend.onrender.com)  
-> **Frontend URL:** [https://pigeon-bookstore.netlify.app](https://pigeon-bookstore.netlify.app)  
+> **Frontend URL:** [https://pigeon-bookstore.pages.dev](https://pigeon-bookstore.pages.dev)  
 > **AI Service URL:** [https://sdl-ai-service.onrender.com](https://sdl-ai-service.onrender.com)
 
 ---
