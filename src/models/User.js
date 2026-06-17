@@ -69,6 +69,42 @@ class User {
     static async verifyPassword(plainPassword, hashedPassword) {
         return bcrypt.compare(plainPassword, hashedPassword);
     }
+
+    // Cập nhật token khôi phục mật khẩu và thời hạn
+    static async updateResetToken(userId, token, expiresAt) {
+        const query = `
+            UPDATE users 
+            SET reset_password_token = $1, reset_password_expires = $2
+            WHERE id = $3
+            RETURNING id, email, reset_password_token, reset_password_expires
+        `;
+        const result = await pool.query(query, [token, expiresAt, userId]);
+        return result.rows[0];
+    }
+
+    // Tìm user bằng reset token đang hoạt động (chưa hết hạn)
+    static async findByResetToken(token) {
+        const query = `
+            SELECT * FROM users 
+            WHERE reset_password_token = $1 AND reset_password_expires > NOW()
+        `;
+        const result = await pool.query(query, [token]);
+        return result.rows[0] || null;
+    }
+
+    // Cập nhật mật khẩu mới và xóa bỏ token/hạn sử dụng
+    static async updatePasswordAndClearToken(userId, plainPassword) {
+        // Băm mật khẩu mới
+        const hashedPassword = await bcrypt.hash(plainPassword, 10);
+        const query = `
+            UPDATE users 
+            SET password_hash = $1, reset_password_token = NULL, reset_password_expires = NULL
+            WHERE id = $2
+            RETURNING id, email, full_name, role
+        `;
+        const result = await pool.query(query, [hashedPassword, userId]);
+        return result.rows[0];
+    }
 }
 
 module.exports = User;

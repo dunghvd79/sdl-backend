@@ -5,6 +5,7 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
+const EmailService = require('./emailService');
 
 class AuthService {
     // Logic Đăng ký
@@ -81,6 +82,43 @@ class AuthService {
         } catch (err) {
             return null;
         }
+    }
+
+    // Logic Quên mật khẩu - Tạo token gửi mail
+    static async forgotPassword({ email }) {
+        // 1. Tìm user theo email
+        const user = await User.findByEmail(email);
+        if (!user) {
+            throw new Error('Email này không tồn tại trong hệ thống!');
+        }
+
+        // 2. Tạo token ngẫu nhiên bảo mật (32 bytes = 64 ký tự hex)
+        const token = crypto.randomBytes(32).toString('hex');
+        
+        // 3. Thiết lập thời hạn 15 phút
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+        // 4. Lưu vào DB
+        await User.updateResetToken(user.id, token, expiresAt);
+
+        // 5. Gửi mail khôi phục
+        await EmailService.sendResetPasswordEmail(user.email, token, user.full_name);
+
+        return { email: user.email };
+    }
+
+    // Logic Đặt lại mật khẩu mới
+    static async resetPassword({ token, newPassword }) {
+        // 1. Kiểm tra token và hạn dùng
+        const user = await User.findByResetToken(token);
+        if (!user) {
+            throw new Error('Liên kết khôi phục mật khẩu không hợp lệ hoặc đã hết hạn!');
+        }
+
+        // 2. Cập nhật mật khẩu mới và xóa token
+        const updatedUser = await User.updatePasswordAndClearToken(user.id, newPassword);
+
+        return { email: updatedUser.email };
     }
 }
 

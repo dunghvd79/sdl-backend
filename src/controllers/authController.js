@@ -92,6 +92,52 @@ class AuthController {
             res.status(500).json({ error: err.message });
         }
     }
+
+    // API: Yêu cầu khôi phục mật khẩu (POST /api/auth/forgot-password)
+    static async forgotPassword(req, res) {
+        try {
+            const { email } = req.body;
+            if (!email) {
+                return res.status(400).json({ error: 'Vui lòng cung cấp email!' });
+            }
+
+            await AuthService.forgotPassword({ email: email.trim() });
+            
+            res.status(200).json({
+                message: 'Hướng dẫn khôi phục mật khẩu đã được gửi tới email của bạn!'
+            });
+        } catch (err) {
+            res.status(400).json({ error: err.message });
+        }
+    }
+
+    // API: Đặt lại mật khẩu mới (POST /api/auth/reset-password)
+    static async resetPassword(req, res) {
+        try {
+            const { token, newPassword } = req.body;
+            if (!token || !newPassword) {
+                return res.status(400).json({ error: 'Mã xác thực hoặc mật khẩu mới không hợp lệ!' });
+            }
+
+            // Kiểm tra tính hợp lệ của mật khẩu mới (theo quy chuẩn đăng ký)
+            if (newPassword.length < 6) {
+                return res.status(400).json({ error: 'Mật khẩu mới phải chứa ít nhất 6 ký tự!' });
+            }
+            const hasLetter = /[a-zA-Z]/.test(newPassword);
+            const hasNumber = /[0-9]/.test(newPassword);
+            if (!hasLetter || !hasNumber) {
+                return res.status(400).json({ error: 'Mật khẩu mới phải bao gồm cả chữ cái và chữ số!' });
+            }
+
+            await AuthService.resetPassword({ token, newPassword });
+
+            res.status(200).json({
+                message: 'Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới.'
+            });
+        } catch (err) {
+            res.status(400).json({ error: err.message });
+        }
+    }
 }
 
 module.exports = AuthController;

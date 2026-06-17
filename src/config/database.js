@@ -210,6 +210,18 @@ pool.query('SELECT NOW()', async (err, res) => {
                 console.error('❌ Migration users session_id gặp lỗi:', sessionColErr.message);
             }
 
+            // Tự động kiểm tra/thêm cột reset_password_token và reset_password_expires vào bảng users
+            try {
+                await pool.query(`
+                    ALTER TABLE users 
+                    ADD COLUMN IF NOT EXISTS reset_password_token VARCHAR(255),
+                    ADD COLUMN IF NOT EXISTS reset_password_expires TIMESTAMP;
+                `);
+                console.log('✅ Migration: Đã kiểm tra/thêm cột reset_password_token và reset_password_expires vào bảng users.');
+            } catch (resetColErr) {
+                console.error('❌ Migration users reset password columns gặp lỗi:', resetColErr.message);
+            }
+
             // Tự động kiểm tra và sửa lỗi id bị NULL hoặc trùng lặp trên bảng users (tự phục hồi dữ liệu)
             try {
                 // 1. Quét tìm xem có dòng nào id bị NULL không
