@@ -3,6 +3,7 @@
 // ==========================================
 const BookService = require('../services/bookService');
 const { encodeBookId } = require('../utils/hashids');
+const { getCache, setCache, clearCachePattern } = require('../config/redis');
 
 function validateBookInput(data) {
     const { title, author, isbn, description, price, status } = data;
@@ -99,15 +100,25 @@ class BookController {
             const maxPrice = req.query.maxPrice ? parseFloat(req.query.maxPrice) : null;
             // Admin mode: lấy cả sách ẩn và bản nháp (khi có query adminMode=true)
             const adminMode = req.query.adminMode === 'true';
-            const isFeatured = req.query.isFeatured;
+            const isFeatured = req.query.isFeatured || '';
+
+            const cacheKey = `books:all:${limit}_${page}_${search}_${categoryId}_${sortBy}_${maxPrice}_${adminMode}_${isFeatured}`;
+            const cachedData = await getCache(cacheKey);
+            if (cachedData) {
+                return res.status(200).json(cachedData);
+            }
 
             const books = await BookService.getBooks({ limit, offset, search, categoryId, sortBy, maxPrice, adminMode, isFeatured });
 
-            res.status(200).json({
+            const responseData = {
                 message: 'Lấy danh sách thành công',
                 data: books.map(book => ({ ...book, hashId: encodeBookId(book.id) })),
                 pagination: { page, limit, total_in_page: books.length }
-            });
+            };
+
+            await setCache(cacheKey, responseData, 3600);
+
+            res.status(200).json(responseData);
         } catch (err) {
             res.status(500).json({ error: err.message });
         }
@@ -130,6 +141,9 @@ class BookController {
                 images
             );
 
+            // Invalidate cache
+            await clearCachePattern('books:*');
+
             res.status(201).json({
                 message: 'Thêm sách thành công!',
                 data: book ? { ...book, hashId: encodeBookId(book.id) } : null
@@ -143,11 +157,21 @@ class BookController {
     static async getBook(req, res) {
         try {
             const { id } = req.params;
+            const cacheKey = `books:detail:${id}`;
+            const cachedData = await getCache(cacheKey);
+            if (cachedData) {
+                return res.status(200).json({ data: cachedData });
+            }
+
             const book = await BookService.getBookDetails(id);
             if (!book) {
                 return res.status(404).json({ error: 'Không tìm thấy cuốn sách này' });
             }
-            res.status(200).json({ data: book ? { ...book, hashId: encodeBookId(book.id) } : null });
+
+            const responseData = book ? { ...book, hashId: encodeBookId(book.id) } : null;
+            await setCache(cacheKey, responseData, 3600);
+
+            res.status(200).json({ data: responseData });
         } catch (err) {
             res.status(500).json({ error: err.message });
         }
@@ -209,6 +233,9 @@ class BookController {
                 message: 'Cập nhật sách thành công!',
                 data: result.rows[0] ? { ...result.rows[0], hashId: encodeBookId(result.rows[0].id) } : null
             });
+            
+            // Invalidate cache
+            await clearCachePattern('books:*');
         } catch (err) {
             res.status(500).json({ error: handleDatabaseError(err) });
         }
@@ -224,6 +251,9 @@ class BookController {
             if (result.rowCount === 0) {
                 return res.status(404).json({ error: 'Không tìm thấy cuốn sách này!' });
             }
+
+            // Invalidate cache
+            await clearCachePattern('books:*');
 
             res.status(200).json({ message: `Đã xóa sách ID=${id} thành công!` });
         } catch (err) {

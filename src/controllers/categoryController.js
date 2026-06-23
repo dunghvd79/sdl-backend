@@ -2,12 +2,21 @@
 // FILE 3: src/controllers/categoryController.js
 // ==========================================
 const Category = require('../models/Category');
+const { getCache, setCache, delCache, clearCachePattern } = require('../config/redis');
 
 class CategoryController {
     // GET /api/categories
     static async getAllCategories(req, res) {
         try {
+            const cacheKey = 'categories:all';
+            const cachedData = await getCache(cacheKey);
+            if (cachedData) {
+                return res.status(200).json({ data: cachedData });
+            }
+
             const categories = await Category.getAll();
+            await setCache(cacheKey, categories, 3600);
+
             res.status(200).json({ data: categories });
         } catch (err) {
             res.status(500).json({ error: err.message });
@@ -21,6 +30,10 @@ class CategoryController {
             if (!name) return res.status(400).json({ error: 'Tên danh mục không được để trống' });
 
             const category = await Category.create({ name, description });
+
+            // Invalidate cache
+            await delCache('categories:all');
+
             res.status(201).json({ message: 'Tạo danh mục thành công', data: category });
         } catch (err) {
             res.status(400).json({ error: err.message });
@@ -37,6 +50,10 @@ class CategoryController {
             const category = await Category.update(id, { name, description });
             if (!category) return res.status(404).json({ error: 'Không tìm thấy danh mục' });
 
+            // Invalidate cache
+            await delCache('categories:all');
+            await clearCachePattern('books:*');
+
             res.status(200).json({ message: 'Cập nhật danh mục thành công', data: category });
         } catch (err) {
             res.status(400).json({ error: err.message });
@@ -49,6 +66,10 @@ class CategoryController {
             const { id } = req.params;
             const deleted = await Category.delete(id);
             if (!deleted) return res.status(404).json({ error: 'Không tìm thấy danh mục' });
+
+            // Invalidate cache
+            await delCache('categories:all');
+            await clearCachePattern('books:*');
 
             res.status(200).json({ message: `Đã xóa danh mục ID=${id} thành công` });
         } catch (err) {
@@ -84,6 +105,10 @@ class CategoryController {
             if (!category) return res.status(404).json({ error: 'Không tìm thấy danh mục' });
 
             const assigned = await Category.assignBooks(id, bookIds);
+
+            // Invalidate book caches because association changed
+            await clearCachePattern('books:*');
+
             res.status(200).json({ message: 'Gán sách vào danh mục thành công', data: assigned });
         } catch (err) {
             res.status(500).json({ error: err.message });
@@ -102,6 +127,9 @@ class CategoryController {
             if (!removed) {
                 return res.status(404).json({ error: 'Sách không thuộc danh mục này' });
             }
+
+            // Invalidate book caches
+            await clearCachePattern('books:*');
 
             res.status(200).json({ message: 'Gỡ sách khỏi danh mục thành công' });
         } catch (err) {
