@@ -14,18 +14,28 @@ async function seedTestUsers() {
     try {
         console.log('⏳ Dang tao 3 tai khoan thu nghiem...');
         for (const user of testUsers) {
-            const query = `
-                INSERT INTO users (email, password_hash, full_name, role, is_active)
-                VALUES ($1, $2, $3, $4, true)
+            const userQuery = `
+                INSERT INTO users (email, password_hash, role, is_active)
+                VALUES ($1, $2, $3, true)
                 ON CONFLICT (email) 
                 DO UPDATE SET 
                     password_hash = EXCLUDED.password_hash,
-                    full_name = EXCLUDED.full_name,
                     role = EXCLUDED.role,
                     is_active = true
                 RETURNING id, email, role;
             `;
-            const res = await pool.query(query, [user.email, passwordHash, user.fullName, user.role]);
+            const res = await pool.query(userQuery, [user.email, passwordHash, user.role]);
+            const userId = res.rows[0].id;
+
+            const profileQuery = `
+                INSERT INTO user_profiles (user_id, full_name)
+                VALUES ($1, $2)
+                ON CONFLICT (user_id)
+                DO UPDATE SET
+                    full_name = EXCLUDED.full_name;
+            `;
+            await pool.query(profileQuery, [userId, user.fullName]);
+
             console.log(`✅ Da tao/cap nhat tai khoan: ${res.rows[0].email} [${res.rows[0].role}]`);
         }
         console.log('\n🎉 Da khoi tao thanh cong 3 tai khoan local test!');
