@@ -6,7 +6,19 @@ let isConnected = false;
 
 if (process.env.REDIS_URL) {
     client = createClient({
-        url: process.env.REDIS_URL
+        url: process.env.REDIS_URL,
+        pingInterval: 30000, // Gửi lệnh PING mỗi 30 giây để giữ kết nối sống (chống timeout của Upstash)
+        socket: {
+            keepAlive: 15000, // Bật TCP Keep-Alive gửi gói tin sau mỗi 15 giây
+            reconnectStrategy: (retries) => {
+                // Tự động kết nối lại sau 2 giây, giới hạn thử lại tối đa để tránh nghẽn
+                if (retries > 20) {
+                    console.error('❌ Redis: Đã thử kết nối lại quá 20 lần nhưng thất bại.');
+                    return new Error('Redis connection lost');
+                }
+                return 2000;
+            }
+        }
     });
 
     client.on('connect', () => {

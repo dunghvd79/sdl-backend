@@ -76,11 +76,23 @@ class Book {
 
         const params = [];
         const whereConditions = [];
+        let tsQuery = null;
 
         // Nếu có từ khóa tìm kiếm
         if (search) {
-            params.push(`%${search}%`);
-            whereConditions.push(`(b.title ILIKE $${params.length} OR b.author ILIKE $${params.length})`);
+            const cleanSearch = search.trim();
+            // Tách các từ, giữ lại ký tự chữ tiếng Việt và số
+            const terms = cleanSearch
+                .split(/\s+/)
+                .map(t => t.replace(/[^a-zA-Z0-9À-ỹ]/g, ''))
+                .filter(t => t.length > 0);
+
+            if (terms.length > 0) {
+                // Biến đổi thành prefix match tsquery: 'term1:* & term2:*'
+                tsQuery = terms.map(t => `${t}:*`).join(' & ');
+                params.push(tsQuery);
+                whereConditions.push(`to_tsvector('simple', immutable_unaccent(b.title) || ' ' || immutable_unaccent(b.author) || ' ' || immutable_unaccent(COALESCE(b.description, ''))) @@ to_tsquery('simple', immutable_unaccent($${params.length}))`);
+            }
         }
 
         // Lọc theo danh mục
@@ -118,6 +130,9 @@ class Book {
             query += ` ORDER BY b.price ASC`;
         } else if (sortBy === 'price_desc') {
             query += ` ORDER BY b.price DESC`;
+        } else if (tsQuery) {
+            // Ưu tiên độ tương đồng (ranking) khi tìm kiếm, sau đó mới tới thứ tự hiển thị và thời gian tạo
+            query += ` ORDER BY ts_rank(to_tsvector('simple', immutable_unaccent(b.title) || ' ' || immutable_unaccent(b.author) || ' ' || immutable_unaccent(COALESCE(b.description, ''))), to_tsquery('simple', immutable_unaccent($${params.indexOf(tsQuery) + 1}))) DESC, b.display_order DESC, b.created_at DESC`;
         } else {
             // newest is default: prioritize display_order first, then newest created_at
             query += ` ORDER BY b.display_order DESC, b.created_at DESC`;
