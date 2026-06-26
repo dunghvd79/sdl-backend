@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 const EmailService = require('./emailService');
+const { queueResetPasswordEmail } = require('../queues/emailQueue');
 
 class AuthService {
     // Logic Đăng ký
@@ -101,8 +102,8 @@ class AuthService {
         // 4. Lưu vào DB
         await User.updateResetToken(user.id, token, expiresAt);
 
-        // 5. Gửi mail khôi phục
-        await EmailService.sendResetPasswordEmail(user.email, token, user.full_name);
+        // 5. Gửi mail khôi phục (xếp hàng vào hàng đợi BullMQ để xử lý bất đồng bộ)
+        await queueResetPasswordEmail(user.email, token, user.full_name);
 
         return { email: user.email };
     }

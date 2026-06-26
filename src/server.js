@@ -1,12 +1,20 @@
 const app = require('./config/app');
 require('./config/database'); // Gọi file này để chạy test kết nối DB
 const OrderService = require('./services/orderService');
+const { startEmailWorker } = require('./queues/emailWorker');
 
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
     console.log(`🚀 Server đang chạy tại cổng ${PORT}`);
     console.log(`🌍 Môi trường: ${process.env.NODE_ENV}`);
+
+    // Khởi chạy BullMQ Email Worker để xử lý gửi email ngầm
+    try {
+        startEmailWorker();
+    } catch (err) {
+        console.error('❌ Lỗi khởi động BullMQ Email Worker:', err.message);
+    }
 
     // Thiết lập quét ngầm định kỳ mỗi 5 phút để hủy đơn hàng ONLINE hết hạn
     setInterval(() => {
