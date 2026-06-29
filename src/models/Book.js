@@ -109,7 +109,7 @@ class Book {
         }
 
         // Lọc theo nổi bật (Editor's Pick)
-        if (isFeatured !== undefined) {
+        if (isFeatured !== undefined && isFeatured !== '') {
             params.push(isFeatured === 'true' || isFeatured === true);
             whereConditions.push(`b.is_featured = $${params.length}`);
         }
