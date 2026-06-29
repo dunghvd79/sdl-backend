@@ -25,11 +25,10 @@ CREATE TABLE IF NOT EXISTS inventory (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Đổ dữ liệu tồn kho giả định cho cuốn sách Clean Code (ID = 1) mà bạn vừa tạo lúc nãy
--- Giả sử kho đang có 10 cuốn
-INSERT INTO inventory (book_id, available_qty) 
-VALUES (1, 10) 
-ON CONFLICT (book_id) DO NOTHING;
+-- 4. [Đã bình luận để tránh lỗi khóa ngoại khi DB trống] Đổ dữ liệu tồn kho giả định cho cuốn sách Clean Code (ID = 1) mà bạn vừa tạo lúc nãy
+-- INSERT INTO inventory (book_id, available_qty) 
+-- VALUES (1, 10) 
+-- ON CONFLICT (book_id) DO NOTHING;
 
 -- 5. Tạo bảng Nhật ký Biến động Kho (Inventory Transactions)
 CREATE TABLE IF NOT EXISTS inventory_transactions (
