@@ -24,16 +24,17 @@ async function seedProductionUsers() {
         console.log('⏳ Đang tạo 3 tài khoản thử nghiệm trên Production...');
         for (const user of testUsers) {
             const userQuery = `
-                INSERT INTO users (email, password_hash, role, is_active)
-                VALUES ($1, $2, $3, true)
+                INSERT INTO users (email, password_hash, full_name, role, is_active)
+                VALUES ($1, $2, $3, $4, true)
                 ON CONFLICT (email) 
                 DO UPDATE SET 
                 password_hash = EXCLUDED.password_hash,
+                full_name = EXCLUDED.full_name,
                 role = EXCLUDED.role,
                 is_active = true
                 RETURNING id, email, role;
             `;
-            const res = await pool.query(userQuery, [user.email, passwordHash, user.role]);
+            const res = await pool.query(userQuery, [user.email, passwordHash, user.fullName, user.role]);
             const userId = res.rows[0].id;
 
             const profileQuery = `

@@ -6,6 +6,7 @@ CREATE TABLE users (
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(50) CHECK (role IN ('CUSTOMER', 'ADMIN', 'CURATOR')) DEFAULT 'CUSTOMER',
+    full_name VARCHAR(255),
     phone VARCHAR(50),
     address TEXT,
     session_id VARCHAR(255),
