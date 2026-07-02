@@ -1,7 +1,6 @@
 # ⚙️ Smart Digital Library (SDL) — Backend API Context
 
-> **Dự án:** Smart Digital Library (SDL) - Phân hệ Backend API  
-> **Cập nhật lần cuối:** 06/2026 (Database & Infrastructure Hardening)  
+> **Cập nhật lần cuối:** 07/2026 (Database & Order Stepper Repair)  
 > **Backend API Production URL:** [https://sdl-backend.onrender.com](https://sdl-backend.onrender.com)  
 > **Frontend URL:** [https://pigeon-bookstore.pages.dev](https://pigeon-bookstore.pages.dev)  
 > **AI Service URL:** [https://sdl-ai-service.onrender.com](https://sdl-ai-service.onrender.com)
@@ -58,8 +57,8 @@ Hệ thống quản lý dữ liệu thông qua các Model chính tương ứng v
 3.  **BookImages**: Ảnh phụ chi tiết sách (`id`, `book_id` [Khóa ngoại], `image_url`, `display_order`, `created_at`).
 4.  **Category**: Danh mục/thể loại sách (`id`, `name`, `description`).
 5.  **Inventory**: Quản lý kho hàng (`book_id` [Khóa chính, Khóa ngoại], `available_qty`, `reserved_qty`, `sold_qty`, `updated_at`).
-6.  **Order**: Đơn hàng (`id`, `user_id`, `total_amount`, `status` [PENDING, CONFIRMED, PACKAGING, DELIVERING, DELIVERED, CANCELLED], `payment_method`, `shipping_name`, `shipping_phone`, `shipping_address`, `shipping_notes`, `coupon_id`, `discount_amount`, `cancel_reason`, `created_at`).
-7.  **OrderItems**: Chi tiết đơn hàng (`id`, `order_id`, `book_id`, `quantity`, `price_at_purchase`).
+6.  **Order**: Đơn hàng (`id`, `user_id`, `total_amount`, `status` [PENDING, CONFIRMED, PACKAGING, DELIVERING, DELIVERED, CANCELLED], `payment_method`, `shipping_name`, `shipping_phone`, `shipping_address`, `shipping_notes`, `coupon_id`, `discount_amount`, `cancel_reason`, `created_at`, `updated_at`).
+7.  **OrderItems**: Chi tiết đơn hàng (`id`, `order_id`, `book_id`, `quantity`, `price`).
 8.  **Cart**: Giỏ hàng người dùng (`id`, `user_id`, `created_at`).
 9.  **CartItems**: Chi tiết giỏ hàng (`id`, `cart_id`, `book_id`, `quantity`, `price_at_add`, `added_at` - Ràng buộc UNIQUE [cart_id, book_id]).
 10. **Coupon**: Mã giảm giá (`id`, `code`, `discount_type` [PERCENT, FIXED], `discount_value`, `min_order_amount`, `max_discount_amount`, `start_date`, `end_date`, `usage_limit`, `used_count`, `is_active`, `created_at`).
@@ -68,6 +67,7 @@ Hệ thống quản lý dữ liệu thông qua các Model chính tương ứng v
 13. **Notification**: Thông báo (`id`, `user_id`, `title`, `content`, `type` [ORDER, PROMOTION, ACCOUNT], `is_read`, `created_at`).
 14. **Review**: Đánh giá sản phẩm (`id`, `book_id`, `user_id`, `rating` [1-5], `comment`, `created_at` - Ràng buộc UNIQUE [book_id, user_id]).
 15. **Article**: Bài viết blog (`id`, `title`, `summary`, `content`, `cover_url`, `category`, `reading_time`, `status` [DRAFT, PUBLISHED, HIDDEN], `is_featured`, `created_at`).
+16. **Payment**: Giao dịch thanh toán (`id`, `order_id`, `amount`, `payment_method`, `status`, `transaction_id`, `created_at`, `updated_at`).
 
 ---
 
