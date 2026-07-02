@@ -9,6 +9,7 @@ require('dotenv').config();
 const path = require('path');
 
 const app = express();
+app.set('trust proxy', 1); // Tin tưởng reverse proxy của Render để lấy IP thực cho rate limiter
 
 // 1. Tích hợp Helmet bảo mật HTTP Headers (Cho phép load tài nguyên ảnh tĩnh từ port khác)
 app.use(helmet({
