@@ -111,6 +111,7 @@ CREATE TABLE orders (
     discount_amount NUMERIC DEFAULT 0 CHECK (discount_amount >= 0),
     cancel_reason TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT
 );
 
