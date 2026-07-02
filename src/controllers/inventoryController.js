@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { clearCachePattern } = require('../config/redis');
 
 class InventoryController {
     // GET /api/inventory
@@ -71,6 +72,9 @@ class InventoryController {
             }
 
             await client.query('COMMIT');
+
+            // Invalidate book list cache to reflect new stock quantities
+            await clearCachePattern('books:*');
 
             res.status(200).json({
                 message: 'Cập nhật tồn kho thành công!',
