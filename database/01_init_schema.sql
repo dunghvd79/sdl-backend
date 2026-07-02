@@ -125,6 +125,17 @@ CREATE TABLE order_items (
     FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE RESTRICT
 );
 
+CREATE TABLE payments (
+    id SERIAL PRIMARY KEY,
+    order_id INT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    amount DECIMAL(10, 2) NOT NULL,
+    payment_method VARCHAR(50) DEFAULT 'MOCK_GATEWAY',
+    status VARCHAR(50) DEFAULT 'PENDING',
+    transaction_id VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ==========================================
 -- 4. MODULE RAG & INTERACTION
 -- ==========================================
