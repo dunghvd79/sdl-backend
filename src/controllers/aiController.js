@@ -23,8 +23,9 @@ class AiController {
 
             const pool = require('../config/database');
 
-            // Kiểm tra quyền sở hữu đối với CUSTOMER: Phải mua và được giao thành công (status = 'DELIVERED')
-            if (req.user && req.user.role !== 'ADMIN' && req.user.role !== 'CURATOR') {
+            // Kiểm tra quyền sở hữu đối với CUSTOMER & CURATOR: Phải mua và được giao thành công (status = 'DELIVERED')
+            // Chỉ duy nhất ADMIN được quyền bypass để test chẩn đoán hệ thống
+            if (req.user && req.user.role !== 'ADMIN') {
                 const purchaseCheck = await pool.query(
                     `SELECT 1 FROM orders o
                      JOIN order_items oi ON o.id = oi.order_id
