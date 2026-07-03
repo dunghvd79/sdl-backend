@@ -156,6 +156,14 @@ class AiController {
                 [bookId]
             );
 
+            // ✅ Xóa cache danh sách sách để cập nhật số liệu và trạng thái mới nhất lập tức
+            try {
+                const { clearCachePattern } = require('../config/redis');
+                await clearCachePattern('books:*');
+            } catch (cacheErr) {
+                console.error('[Admin] Lỗi xóa cache books khi vector hóa:', cacheErr.message);
+            }
+
             res.status(200).json({
                 message: `Vector hóa thành công sách ID=${bookId}!`,
                 data: result
