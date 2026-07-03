@@ -74,7 +74,11 @@ app.get('/mock-gateway', paymentController.renderMockGateway);
 
 // API kiểm tra server sống hay chết
 app.get('/api/health', (req, res) => {
-    res.status(200).json({ status: 'ok', message: 'Hệ thống Backend SDL đang chạy mượt mà!' });
+    res.status(200).json({ 
+        status: 'ok', 
+        message: 'Hệ thống Backend SDL đang chạy mượt mà!',
+        aiServiceUrl: process.env.AI_SERVICE_URL || 'not set'
+    });
 });
 
 // Middleware bắt lỗi chung
