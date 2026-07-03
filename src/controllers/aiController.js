@@ -173,6 +173,49 @@ class AiController {
             res.status(500).json({ error: err.message });
         }
     }
+
+    // DELETE /api/ai/reset/:bookId
+    // Reset/Xóa dữ liệu vector RAG của cuốn sách
+    static async resetBookRAG(req, res) {
+        try {
+            let { bookId } = req.params;
+
+            const { decodeBookId } = require('../utils/hashids');
+            const decodedBookId = decodeBookId(bookId);
+            if (isNaN(decodedBookId)) {
+                return res.status(400).json({ error: 'Mã sách không hợp lệ!' });
+            }
+            bookId = decodedBookId;
+
+            console.log(`[Admin] Đang xóa dữ liệu vector hóa sách ID=${bookId}`);
+
+            // 1. Gọi sang AI Service để xóa tài liệu trong ChromaDB
+            const result = await AiService.resetBookRAG(bookId);
+
+            // 2. Cập nhật Postgres: Set rag_indexed_at = NULL
+            const pool = require('../config/database');
+            await pool.query(
+                'UPDATE books SET rag_indexed_at = NULL WHERE id = $1',
+                [bookId]
+            );
+
+            // 3. Xóa cache Redis của danh sách sách
+            try {
+                const { clearCachePattern } = require('../config/redis');
+                await clearCachePattern('books:*');
+            } catch (cacheErr) {
+                console.error('[Admin] Lỗi xóa cache books khi reset RAG:', cacheErr.message);
+            }
+
+            res.status(200).json({
+                message: `Reset dữ liệu RAG thành công cho sách ID=${bookId}!`,
+                data: result
+            });
+        } catch (err) {
+            console.error('[Admin] Lỗi reset RAG:', err.message);
+            res.status(500).json({ error: err.message });
+        }
+    }
 }
 
 module.exports = AiController;

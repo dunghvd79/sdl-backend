@@ -38,4 +38,12 @@ router.post(
     aiController.uploadBookPDF
 );
 
+// DELETE /api/ai/reset/:bookId — Reset/Xóa dữ liệu vector hóa RAG của cuốn sách (chỉ ADMIN/CURATOR)
+router.delete(
+    '/reset/:bookId',
+    verifyToken,
+    requireRole(['ADMIN', 'CURATOR']),
+    aiController.resetBookRAG
+);
+
 module.exports = router;

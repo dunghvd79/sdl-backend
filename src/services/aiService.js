@@ -51,6 +51,17 @@ class AiService {
             throw new Error('Không thể tải lên file PDF cho AI Service. ' + (error.response?.data?.detail || error.message));
         }
     }
+
+    // Xóa/Reset dữ liệu vector hóa RAG của cuốn sách
+    static async resetBookRAG(bookId) {
+        try {
+            const response = await axios.delete(`${AI_SERVICE_URL}/api/documents/${bookId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Lỗi khi gọi xóa vector sang AI Service:', error.message);
+            throw new Error('Không thể xóa dữ liệu vector hóa cho AI Service. ' + (error.response?.data?.detail || error.message));
+        }
+    }
 }
 
 module.exports = AiService;
