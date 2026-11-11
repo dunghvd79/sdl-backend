@@ -35,6 +35,14 @@ Controller là class có method `static async (req, res, next)`, trả `res.stat
 - [src/middleware/errorHandler.js](src/middleware/errorHandler.js): `AppError` → mã + thông báo; JSON hỏng → 400; Postgres `23505` → 400 "Dữ liệu này đã tồn tại."; còn lại → 500 chung + `errorId` (UUID), chi tiết ghi `console.error` với `[error <errorId>]` để tra trong Render Logs. `/api/*` không khớp route → 404 JSON.
 - Các nhánh kiểm tra đầu vào `return res.status(400).json({ error: '...' })` với câu cố định vẫn được giữ.
 
+**Kiểm tra đầu vào (spec 003, Zod 4):**
+- Lược đồ khai báo trong [src/validators/schemas.js](src/validators/schemas.js), dùng các khối dựng sẵn ở [src/validators/common.js](src/validators/common.js): `text`, `number`, `oneOf`, `bool`, `bookId`, `idList`, `listQuery`.
+- Gắn ở route: `validate({ body | query | params: schemas.x.y })` ([src/middleware/validate.js](src/middleware/validate.js)). Middleware **chỉ kiểm tra**, không thay `req.body`. Vi phạm đầu tiên trả về `AppError` 400 với câu tiếng Việt.
+- Đối tượng dùng `z.looseObject` vì giao diện gửi kèm trường thừa. Số dùng `z.coerce`, vì form gửi số dưới dạng chuỗi.
+- Trường nào controller đã có câu báo thiếu thì để tuỳ chọn trong lược đồ, để câu cũ vẫn được trả. Giới hạn trong lược đồ không chặt hơn kiểm tra sẵn có, và độ dài không vượt độ dài cột DB.
+- `limit` của API danh sách tối đa 500, vì trang quản trị đang dùng tới 500.
+- Thêm API ghi dữ liệu mới thì **phải** thêm lược đồ, kèm test cho dữ liệu sai và test cho payload thật của giao diện.
+
 ## Quy ước bắt buộc
 
 - **SQL:** luôn dùng parameterized query (`$1, $2`), không cộng chuỗi. Khi `pool.connect()` thì `client.release()` trong `finally`. Đặt hàng, thanh toán, trừ kho và mọi luồng ghi nhiều bảng phải nằm trong `BEGIN/COMMIT/ROLLBACK`.

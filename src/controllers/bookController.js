@@ -83,7 +83,8 @@ function handleDatabaseError(err) {
     if (msg.includes('violates check constraint "books_status_check"')) {
         return 'Trạng thái sách không hợp lệ! Chỉ cho phép: DRAFT, PUBLISHED, HIDDEN.';
     }
-    return msg;
+    // Lỗi không nhận diện được: KHÔNG trả nguyên văn (spec 001) — để errorHandler che đi
+    return null;
 }
 
 class BookController {
@@ -149,7 +150,9 @@ class BookController {
                 data: book ? { ...book, hashId: encodeBookId(book.id) } : null
             });
         } catch (err) {
-            res.status(400).json({ error: handleDatabaseError(err) });
+            const known = handleDatabaseError(err);
+            if (known) return res.status(400).json({ error: known });
+            next(err);
         }
     }
 
@@ -237,7 +240,9 @@ class BookController {
             // Invalidate cache
             await clearCachePattern('books:*');
         } catch (err) {
-            res.status(500).json({ error: handleDatabaseError(err) });
+            const known = handleDatabaseError(err);
+            if (known) return res.status(400).json({ error: known });
+            next(err);
         }
     }
 

@@ -3,6 +3,9 @@ const articleController = require('../controllers/articleController');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const { decodeArticleId } = require('../utils/hashids');
 
+const { validate } = require('../middleware/validate');
+const schemas = require('../validators/schemas');
+
 const router = express.Router();
 
 // Tự động giải mã Hashid nếu có trong param :id
@@ -16,13 +19,13 @@ router.param('id', (req, res, next, id) => {
 });
 
 // Public (Ai cũng xem được)
-router.get('/', articleController.getAllArticles);
+router.get('/', validate({ query: schemas.article.list }), articleController.getAllArticles);
 router.get('/categories', articleController.getUniqueCategories);
 router.get('/:id', articleController.getArticle);
 
 // Protected (Phải Đăng nhập + Có quyền ADMIN hoặc CURATOR)
-router.post('/', verifyToken, requireRole(['ADMIN', 'CURATOR']), articleController.createArticle);
-router.put('/:id', verifyToken, requireRole(['ADMIN', 'CURATOR']), articleController.updateArticle);
+router.post('/', verifyToken, requireRole(['ADMIN', 'CURATOR']), validate({ body: schemas.article.write }), articleController.createArticle);
+router.put('/:id', verifyToken, requireRole(['ADMIN', 'CURATOR']), validate({ body: schemas.article.write }), articleController.updateArticle);
 router.delete('/:id', verifyToken, requireRole(['ADMIN']), articleController.deleteArticle);
 
 module.exports = router;

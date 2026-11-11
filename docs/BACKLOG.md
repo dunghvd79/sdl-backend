@@ -10,7 +10,6 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 
 | # | Mức | Việc | Bước |
 |---|---|---|---|
-| B7 | 🟠 | Chưa có validation theo lược đồ cho phần lớn API (chỉ đăng ký/đặt lại mật khẩu kiểm tra tay) | 6 (Zod) |
 | B8 | 🟠 | `/mock-gateway` bật trên production, chèn `orderId`/`amount` vào HTML không escape (XSS phản chiếu) | 7 |
 | B9 | 🟡 | `/api/payments/webhook` gọi `PaymentService.processWebhook` không tồn tại → luôn 500 | 7 |
 | B10 | 🟡 | Upload ảnh tin `mimetype` do client gửi và giữ đuôi file gốc (có thể lưu `.html` dưới dạng ảnh) | 7 |
@@ -42,6 +41,8 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | B33 | ⚪ | Mất phản hồi của `/auth/refresh` (mạng di động rớt) → trình duyệt giữ cookie cũ → lần gia hạn sau 30 giây bị coi là dùng lại và đăng xuất | Hệ quả đã biết của thiết kế R4 (spec 002); chấp nhận |
 | B34 | ⚪ | Migration chạy bất đồng bộ sau khi server đã `listen`: vài giây đầu sau lần deploy có bảng mới, request dùng bảng đó có thể lỗi 500 | Có từ trước; cân nhắc chạy migration trước khi `listen` |
 | B35 | ⚪ | `/auth/refresh` và `/auth/reset-password` chỉ có rate limit chung 300/15 phút | Cân nhắc limiter riêng |
+| B36 | ⚪ | Kiểm tra thiếu trường và một số quy tắc vẫn nằm rải rác trong controller (vd `validateBookInput`, kiểm tra số điện thoại); lược đồ Zod chỉ bổ sung phần còn thiếu | Gom hết vào lược đồ khi dọn dẹp, giữ nguyên câu thông báo |
+| B37 | ⚪ | Tham số đường dẫn (`:id`, `:userId`...) chưa có lược đồ; đang dựa vào giải mã hashId/parseInt trong controller | Thêm `validate({ params })` nếu cần |
 | B28 | 🟡 | Mọi cột thời gian dùng `TIMESTAMP` **không múi giờ**; `pg` đọc theo múi giờ của Node. Postgres local/Neon chạy UTC, máy dev chạy +7 → so sánh thời gian bằng `Date` của Node lệch 7 giờ (đã gặp ở refresh token, sửa bằng so sánh trong SQL). Production hiện đúng vì Render cũng UTC | Rà các chỗ so sánh thời gian ở Node; cân nhắc chuyển sang `TIMESTAMPTZ` |
 | B25 | ⚪ | Script kiểm thử chạy tay cũ `src/utils/test_*.js`, `scratch/test_*.js` không thuộc bộ test Jest | Xoá hoặc chuyển thành test Jest |
 
@@ -54,6 +55,8 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | 1 critical + 6 high trong `npm audit --omit=dev`; gỡ `nodemailer` không dùng | `2082e23` |
 | Script `scratch/` ghi cứng chuỗi kết nối DB/Redis | `46923f7` |
 | 72 chỗ trả `err.message` lộ lỗi nội bộ; lỗi trùng danh mục lộ tên ràng buộc DB — xử lý lỗi tập trung (spec 001) | `cd8c24b` |
+| Chưa có validation theo lược đồ cho phần lớn API (chỉ đăng ký/đặt lại mật khẩu kiểm tra tay) — spec 003 (Zod) | (commit spec 003) |
+| `handleDatabaseError` trong bookController trả nguyên văn lỗi DB lạ (sót từ spec 001) | (commit spec 003) |
 | Đặt lại mật khẩu không thu hồi token cũ (không đổi `session_id`) — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |
 | Quên mật khẩu báo "Email này không tồn tại" → dò được email đã đăng ký — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |
 | Token đặt lại mật khẩu lưu nguyên văn trong DB (nên lưu băm) — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |

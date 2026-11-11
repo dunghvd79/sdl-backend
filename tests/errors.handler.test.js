@@ -75,6 +75,21 @@ describe('US1: lỗi hệ thống không lộ chi tiết nội bộ', () => {
     });
 });
 
+describe('US1 (bổ sung, phát hiện ở spec 003): bookController không lộ lỗi DB', () => {
+    test('tạo sách gặp lỗi DB lạ → 500 chung, không lộ thông báo gốc', async () => {
+        const auth = await loginAs('ADMIN', 'admin-book@test.vn');
+        const BookService = require('../src/services/bookService');
+        jest.spyOn(BookService, 'createBook').mockRejectedValueOnce(new Error(DB_ERROR));
+
+        const res = await request(app).post('/api/books').set(auth)
+            .send({ title: 'Sach', author: 'Tac Gia', price: 1000 });
+
+        expect(res.status).toBe(500);
+        expect(res.body.error).toBe(SYSTEM_ERROR_MESSAGE);
+        expectNoLeak(res);
+    });
+});
+
 describe('US3: JSON hỏng, đường dẫn sai, trùng dữ liệu', () => {
     test('nội dung JSON sai cú pháp → 400 tiếng Việt', async () => {
         const res = await request(app)

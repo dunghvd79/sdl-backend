@@ -7,6 +7,9 @@ const reviewController = require('../controllers/reviewController');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const { decodeBookId } = require('../utils/hashids');
 
+const { validate } = require('../middleware/validate');
+const schemas = require('../validators/schemas');
+
 const router = express.Router();
 
 // Tự động giải mã Hashid nếu có trong param :id
@@ -20,16 +23,16 @@ router.param('id', (req, res, next, id) => {
 });
 
 // Public (Ai cũng xem được)
-router.get('/', bookController.getAllBooks);
+router.get('/', validate({ query: schemas.book.list }), bookController.getAllBooks);
 router.get('/:id', bookController.getBook);
 router.get('/:id/reviews', reviewController.getReviews);
 
 // Protected (Phải Đăng nhập + Có quyền ADMIN hoặc CURATOR)
-router.post('/', verifyToken, requireRole(['ADMIN', 'CURATOR']), bookController.createBook);
-router.put('/:id', verifyToken, requireRole(['ADMIN', 'CURATOR']), bookController.updateBook);
+router.post('/', verifyToken, requireRole(['ADMIN', 'CURATOR']), validate({ body: schemas.book.write }), bookController.createBook);
+router.put('/:id', verifyToken, requireRole(['ADMIN', 'CURATOR']), validate({ body: schemas.book.write }), bookController.updateBook);
 router.delete('/:id', verifyToken, requireRole(['ADMIN']), bookController.deleteBook);
 
 // Protected reviews (Đăng nhập mới gửi được)
-router.post('/:id/reviews', verifyToken, reviewController.createReview);
+router.post('/:id/reviews', verifyToken, validate({ body: schemas.review.create }), reviewController.createReview);
 
 module.exports = router;
