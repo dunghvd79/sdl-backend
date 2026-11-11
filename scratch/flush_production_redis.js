@@ -1,6 +1,8 @@
 const { createClient } = require('redis');
 
-const productionRedisUrl = 'rediss://default:gQAAAAAAAlRaAAIgcDIxY2MzNjA0NjdjMmE0ZWI2YTJhM2Y1ODhlMjc0NzYzNA@civil-skylark-152666.upstash.io:6379';
+require('dotenv').config();
+const productionRedisUrl = process.env.PROD_REDIS_URL;
+if (!productionRedisUrl) { console.error('❌ Thiếu biến môi trường PROD_REDIS_URL (rediss://... của Upstash). Xem database/README.md.'); process.exit(1); }
 
 async function flushProductionRedis() {
     console.log('⏳ Đang kết nối tới Production Upstash Redis để xóa cache...');

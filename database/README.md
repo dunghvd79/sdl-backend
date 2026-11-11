@@ -114,6 +114,16 @@ Máy local không cài `psql`/`pg_dump`, nên chạy qua image Docker `postgres:
 
 **Đọc log Render khi deploy:** mã trong ngoặc vuông (ví dụ `[4vd87]`) là ID instance. Trong lúc deploy, log của instance cũ và mới lẫn vào nhau; instance cũ chỉ bị tắt khi instance mới chạy được. Nếu Events báo *Deploy failed*, web vẫn chạy bằng instance cũ với env cũ.
 
+**Script bảo trì Production** (`scratch/*production*.js`, `scratch/sync_books_to_prod.js`, `scratch/check_all_books.js`, `scratch/find_fullname_columns.js`): không còn ghi cứng chuỗi kết nối. Đặt biến trong phiên shell (hoặc thêm vào `.env` local, file này đã được `.gitignore`) rồi mới chạy:
+```bash
+export PROD_DATABASE_URL='postgresql://neondb_owner:<password>@ep-delicate-cherry-azmrwkck.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
+export PROD_REDIS_URL='rediss://default:<password>@apparent-spaniel-129440.upstash.io:6379'   # chỉ cho flush_production_redis.js
+node scratch/check_all_books.js
+```
+Nếu thiếu biến, script dừng ngay với thông báo `❌ Thiếu biến môi trường ...` chứ không kết nối nhầm chỗ.
+
+**AI Service:** khi kiểm tra ngày 11/11/2026, cả bản Render (`sdl-ai-service.onrender.com`) và Railway (`sdl-ai-service-production.up.railway.app`) đều đã bị xoá. Biến `AI_SERVICE_URL` trên Render vẫn trỏ về Railway; khi deploy lại AI Service cần cập nhật biến này.
+
 **Phòng ngừa:** Neon gói Free không hết hạn theo thời gian, nhưng Upstash có thể xoá Redis bị bỏ không quá lâu. Định kỳ sao lưu DB production theo mục 3B.
 
 ---

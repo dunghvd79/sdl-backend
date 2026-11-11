@@ -9,8 +9,11 @@ const localPool = new Pool({
     ssl: false
 });
 
+require('dotenv').config();
+if (!process.env.PROD_DATABASE_URL) { console.error('❌ Thiếu biến môi trường PROD_DATABASE_URL (chuỗi kết nối Neon). Xem database/README.md.'); process.exit(1); }
+
 const prodPool = new Pool({
-    connectionString: 'postgresql://sdl_database_new_user:XvBZdbja7OJ9F4TlTJoNNbVX9DqiebFD@dpg-d8v159cm0tmc738p8bsg-a.singapore-postgres.render.com/sdl_database_new',
+    connectionString: process.env.PROD_DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
