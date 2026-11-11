@@ -57,15 +57,15 @@ description: "Task list for 002 access/refresh tokens"
 
 - [x] T024 Dọn `refresh_tokens` hết hạn mỗi giờ trong src/server.js
 - [x] T025 Smoke test server thật theo quickstart (curl login/refresh/Origin lạ)
-- [ ] T026 Cổng trước commit; commit + push backend; xác nhận production (login có Set-Cookie, refresh 200 với Origin hợp lệ)
+- [x] T026 Cổng trước commit; commit + push backend; xác nhận production (login có Set-Cookie, refresh 200 với Origin hợp lệ)
 
 ## Phase 9: Frontend (repo sdl-frontend)
 
-- [ ] T027 src/services/api.js: `withCredentials`, interceptor gia hạn theo `code` + gộp request, đăng xuất khi thất bại, 401 không `code` không đăng xuất
-- [ ] T028 src/context/AuthContext.jsx: login lưu token; logout gọi `/auth/logout`; `logoutAll`; bỏ reload khi `token` đổi ở tab khác
-- [ ] T029 [P] Chính sách mật khẩu 8 ký tự + chữ/số ở src/pages/RegisterPage.jsx, src/pages/ResetPasswordPage.jsx, src/pages/ProfilePage.jsx; ProfilePage lưu token mới sau đổi mật khẩu + nút "Đăng xuất mọi nơi"
-- [ ] T030 `npm run build`; kịch bản thủ công quickstart (local backend + frontend)
-- [ ] T031 Commit + push frontend; xác nhận production
+- [x] T027 src/services/api.js: `withCredentials`, interceptor gia hạn theo `code` + gộp request, đăng xuất khi thất bại, 401 không `code` không đăng xuất
+- [x] T028 src/context/AuthContext.jsx: login lưu token; logout gọi `/auth/logout`; `logoutAll`; bỏ reload khi `token` đổi ở tab khác
+- [x] T029 [P] Chính sách mật khẩu 8 ký tự + chữ/số ở src/pages/RegisterPage.jsx, src/pages/ResetPasswordPage.jsx, src/pages/ProfilePage.jsx; ProfilePage lưu token mới sau đổi mật khẩu + nút "Đăng xuất mọi nơi"
+- [x] T030 `npm run build`; kịch bản thủ công quickstart (local backend + frontend)
+- [x] T031 Commit + push frontend; xác nhận production
 
 ## Phase 10: Polish
 

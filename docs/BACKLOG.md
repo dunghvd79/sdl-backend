@@ -54,9 +54,9 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | 1 critical + 6 high trong `npm audit --omit=dev`; gỡ `nodemailer` không dùng | `2082e23` |
 | Script `scratch/` ghi cứng chuỗi kết nối DB/Redis | `46923f7` |
 | 72 chỗ trả `err.message` lộ lỗi nội bộ; lỗi trùng danh mục lộ tên ràng buộc DB — xử lý lỗi tập trung (spec 001) | `cd8c24b` |
-| Đặt lại mật khẩu không thu hồi token cũ (không đổi `session_id`) — spec 002 | (commit spec 002) |
-| Quên mật khẩu báo "Email này không tồn tại" → dò được email đã đăng ký — spec 002 | (commit spec 002) |
-| Token đặt lại mật khẩu lưu nguyên văn trong DB (nên lưu băm) — spec 002 | (commit spec 002) |
-| Chính sách mật khẩu yếu (6 ký tự, chữ + số) — spec 002 | (commit spec 002) |
-| CORS mở cho mọi origin (`cors()`); auth bằng cookie bắt buộc phải giới hạn origin + `credentials` — spec 002 | (commit spec 002) |
-| Với access token không tra DB: khoá tài khoản / đổi role có hiệu lực chậm tối đa bằng tuổi thọ access token — **đã quyết định 11/11/2026: chấp nhận trễ** — spec 002 | (commit spec 002) |
+| Đặt lại mật khẩu không thu hồi token cũ (không đổi `session_id`) — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |
+| Quên mật khẩu báo "Email này không tồn tại" → dò được email đã đăng ký — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |
+| Token đặt lại mật khẩu lưu nguyên văn trong DB (nên lưu băm) — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |
+| Chính sách mật khẩu yếu (6 ký tự, chữ + số) — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |
+| CORS mở cho mọi origin (`cors()`); auth bằng cookie bắt buộc phải giới hạn origin + `credentials` — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |
+| Với access token không tra DB: khoá tài khoản / đổi role có hiệu lực chậm tối đa bằng tuổi thọ access token — **đã quyết định 11/11/2026: chấp nhận trễ** — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |
