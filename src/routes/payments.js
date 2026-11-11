@@ -27,9 +27,6 @@ router.get('/payos_cancel', paymentController.payosCancel);
 // 4. API Webhook nhận kết quả thanh toán nền của PayOS (PayOS gọi server-to-server - KHÔNG CẦN ĐĂNG NHẬP)
 router.post('/payos_webhook', paymentController.payosWebhook);
 
-// 5. CÁC ROUTE VNPAY (GIỮ LẠI LÀM FALLBACK/TƯƠNG THÍCH)
-router.get('/vnpay_return', paymentController.vnpayReturn);
-router.get('/vnpay_ipn', paymentController.vnpayIpn);
 router.post('/webhook', paymentController.webhook);
 
 module.exports = router;
