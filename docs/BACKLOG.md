@@ -15,7 +15,7 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | B3 | 🟠 | Token đặt lại mật khẩu lưu nguyên văn trong DB (nên lưu băm) | 5 |
 | B4 | 🟠 | Chính sách mật khẩu yếu (6 ký tự, chữ + số) | 5 |
 | B5 | 🟠 | CORS mở cho mọi origin (`cors()`); auth bằng cookie bắt buộc phải giới hạn origin + `credentials` | 5 |
-| B6 | 🟡 | Với access token không tra DB: khoá tài khoản / đổi role có hiệu lực chậm tối đa bằng tuổi thọ access token — cần quyết định ở `/speckit-clarify` | 5 |
+| B6 | 🟡 | Với access token không tra DB: khoá tài khoản / đổi role có hiệu lực chậm tối đa bằng tuổi thọ access token — **đã quyết định 11/11/2026: chấp nhận trễ** | 5 |
 | B7 | 🟠 | Chưa có validation theo lược đồ cho phần lớn API (chỉ đăng ký/đặt lại mật khẩu kiểm tra tay) | 6 (Zod) |
 | B8 | 🟠 | `/mock-gateway` bật trên production, chèn `orderId`/`amount` vào HTML không escape (XSS phản chiếu) | 7 |
 | B9 | 🟡 | `/api/payments/webhook` gọi `PaymentService.processWebhook` không tồn tại → luôn 500 | 7 |
