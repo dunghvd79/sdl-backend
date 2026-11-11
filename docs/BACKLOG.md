@@ -51,4 +51,4 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | VNPay cho phép giả mạo thanh toán bằng khoá dự phòng ghi cứng — đã gỡ VNPay | `6457f05` |
 | 1 critical + 6 high trong `npm audit --omit=dev`; gỡ `nodemailer` không dùng | `2082e23` |
 | Script `scratch/` ghi cứng chuỗi kết nối DB/Redis | `46923f7` |
-| 72 chỗ trả `err.message` lộ lỗi nội bộ; lỗi trùng danh mục lộ tên ràng buộc DB — xử lý lỗi tập trung (spec 001) | (commit spec 001) |
+| 72 chỗ trả `err.message` lộ lỗi nội bộ; lỗi trùng danh mục lộ tên ràng buộc DB — xử lý lỗi tập trung (spec 001) | `cd8c24b` |
