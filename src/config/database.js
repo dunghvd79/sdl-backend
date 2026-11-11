@@ -10,8 +10,10 @@ const pool = new Pool({
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Test connection
-pool.query('SELECT NOW()', async (err, res) => {
+// Test connection + migration tự động khi khởi động.
+// Bỏ qua khi chạy Jest: DB test đã được nạp schema sẵn (tests/setup/globalSetup.js),
+// và migration chạy song song sẽ giành DB với test (ví dụ setval lại sequence).
+if (process.env.NODE_ENV !== 'test') pool.query('SELECT NOW()', async (err, res) => {
     if (err) {
         console.error('❌ Lỗi kết nối Database:', err.message);
     } else {

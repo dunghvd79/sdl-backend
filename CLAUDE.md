@@ -11,11 +11,16 @@ docker start sdl_postgres        # Postgres local (sdl_user / sdl_db, cổng 543
 npm run dev                      # nodemon src/server.js, cổng 3000
 npm start                        # node src/server.js (Render dùng lệnh này)
 node --check <file>              # kiểm tra cú pháp nhanh
-node src/utils/test_order_inventory_flow.js     # kịch bản kiểm thử tích hợp (cần DB local)
-node src/utils/test_advanced_payment_flow.js
+npm test                         # Jest + Supertest, chạy tuần tự (--runInBand)
+npx jest tests/auth.login.test.js   # chạy một file test
 ```
 
-Chưa có test framework: `npm test` chỉ in lỗi. Các file `src/utils/test_*.js` và `scratch/test_*.js` là script chạy tay, không phải unit test.
+**Test tự động** (`tests/`): Jest gọi thẳng `app` qua Supertest, chạy trên DB riêng `sdl_test` (trong container `sdl_postgres`) và Redis test `sdl_redis_test` cổng 6380. Cả hai container phải đang chạy: `docker start sdl_postgres sdl_redis_test`.
+- `tests/setup/globalSetup.js` xoá và tạo lại `sdl_test` từ `tests/fixtures/schema.sql` mỗi lần chạy. Khi đổi schema thì xuất lại file này: `docker exec sdl_postgres pg_dump -U sdl_user -d sdl_db --schema-only --no-owner --no-privileges`, rồi bỏ các dòng bắt đầu bằng `\` (ví dụ `\restrict`).
+- Mỗi file test gọi `resetDb()` trong `beforeEach` và `closeAll()` trong `afterAll` ở cấp ngoài cùng của file (`tests/helpers/db.js`).
+- Khi `NODE_ENV=test`, migration lúc khởi động trong `database.js` được bỏ qua.
+- Rate limit vẫn bật trong test: `/api/auth/login` cho tối đa 10 lần / 15 phút trong **một file test**. Test cần nhiều lần đăng nhập thì tách file.
+- `src/utils/test_*.js` và `scratch/test_*.js` là script chạy tay cũ, không thuộc bộ test.
 
 ## Kiến trúc
 
