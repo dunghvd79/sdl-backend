@@ -1415,3 +1415,21 @@ ALTER TABLE ONLY public.wishlists
 --
 
 
+
+--
+-- refresh_tokens (spec 002) — khớp với migration trong src/config/database.js
+--
+
+CREATE TABLE IF NOT EXISTS public.refresh_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    family_id UUID NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TIMESTAMP NULL,
+    revoked_reason VARCHAR(20) NULL,
+    user_agent TEXT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON public.refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON public.refresh_tokens(family_id);

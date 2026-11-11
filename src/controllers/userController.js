@@ -1,6 +1,9 @@
 const pool = require('../config/database');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const RefreshToken = require('../models/RefreshToken');
+const AuthService = require('../services/authService');
+const { setRefreshCookie, validateNewPassword } = require('../utils/authTokens');
 
 class UserController {
     // GET /api/users/profile
@@ -57,8 +60,9 @@ class UserController {
                 return res.status(400).json({ error: 'Vui lòng cung cấp mật khẩu hiện tại và mật khẩu mới' });
             }
 
-            if (newPassword.length < 6) {
-                return res.status(400).json({ error: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
+            const passwordError = validateNewPassword(newPassword);
+            if (passwordError) {
+                return res.status(400).json({ error: passwordError });
             }
 
             // 1. Lấy user để lấy mật khẩu đã mã hóa
@@ -84,7 +88,13 @@ class UserController {
             const updateQuery = 'UPDATE users SET password_hash = $1 WHERE id = $2';
             await pool.query(updateQuery, [newPasswordHash, req.user.id]);
 
-            res.status(200).json({ message: 'Đổi mật khẩu thành công' });
+            // 4. Huỷ mọi phiên (spec 002 FR-009), cấp phiên mới cho thiết bị đang đổi mật khẩu
+            await RefreshToken.revokeAllForUser(req.user.id, 'password');
+            const userAgent = req.headers['user-agent'] ? String(req.headers['user-agent']).slice(0, 300) : null;
+            const { accessToken, refreshToken } = await AuthService.issueSession(req.user, { userAgent });
+            setRefreshCookie(res, refreshToken);
+
+            res.status(200).json({ message: 'Đổi mật khẩu thành công', token: accessToken });
         } catch (error) {
             next(error);
         }

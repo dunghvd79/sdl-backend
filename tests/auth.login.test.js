@@ -107,13 +107,13 @@ describe('GET /api/auth/profile', () => {
         expect(res.status).toBe(401);
     });
 
-    // Hành vi một phiên hiện tại; sẽ thay đổi có chủ đích ở bước 5 (cho phép nhiều thiết bị).
-    test('đăng nhập lần hai làm token cũ mất hiệu lực', async () => {
+    // Spec 002 đổi có chủ đích: cho phép nhiều thiết bị (trước đây đăng nhập lần hai đá token cũ ra).
+    test('đăng nhập lần hai, token cũ vẫn dùng được', async () => {
         const oldToken = await login();
         await login();
 
         const res = await request(app).get('/api/auth/profile').set('Authorization', `Bearer ${oldToken}`);
 
-        expect(res.status).toBe(401);
+        expect(res.status).toBe(200);
     });
 });

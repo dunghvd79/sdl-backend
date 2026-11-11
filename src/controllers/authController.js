@@ -1,4 +1,11 @@
 const AuthService = require('../services/authService');
+const AppError = require('../utils/AppError');
+const { setRefreshCookie, clearRefreshCookie, readRefreshCookie, validateNewPassword } = require('../utils/authTokens');
+
+function sessionMeta(req) {
+    const userAgent = req.headers['user-agent'];
+    return { userAgent: userAgent ? String(userAgent).slice(0, 300) : null };
+}
 
 class AuthController {
     // API: Đăng ký tài khoản (POST /api/auth/register)
@@ -32,27 +39,24 @@ class AuthController {
                 return res.status(400).json({ error: 'Họ và tên không được chứa số hoặc ký tự đặc biệt!' });
             }
 
-            // 3. Kiểm tra Mật khẩu
-            if (password.length < 6) {
-                return res.status(400).json({ error: 'Mật khẩu phải chứa ít nhất 6 ký tự!' });
-            }
-            const hasLetter = /[a-zA-Z]/.test(password);
-            const hasNumber = /[0-9]/.test(password);
-            if (!hasLetter || !hasNumber) {
-                return res.status(400).json({ error: 'Mật khẩu phải bao gồm cả chữ cái và chữ số!' });
+            // 3. Kiểm tra Mật khẩu (chính sách spec 002: ≥ 8 ký tự, có chữ và số)
+            const passwordError = validateNewPassword(password);
+            if (passwordError) {
+                return res.status(400).json({ error: passwordError });
             }
 
             // Gọi xuống Service xử lý với dữ liệu đã chuẩn hóa
-            const result = await AuthService.register({ 
-                email: trimmedEmail, 
-                password, 
-                fullName: trimmedName 
-            });
+            const result = await AuthService.register({
+                email: trimmedEmail,
+                password,
+                fullName: trimmedName
+            }, sessionMeta(req));
 
+            setRefreshCookie(res, result.refreshToken);
             res.status(201).json({
                 message: 'Đăng ký tài khoản thành công!',
                 user: result.user,
-                token: result.token
+                token: result.accessToken
             });
         } catch (err) {
             next(err); // Bắt lỗi (VD: Trùng email)
@@ -68,13 +72,52 @@ class AuthController {
                 return res.status(400).json({ error: 'Vui lòng nhập email và mật khẩu!' });
             }
 
-            const result = await AuthService.login({ email, password });
+            const result = await AuthService.login({ email, password }, sessionMeta(req));
 
+            setRefreshCookie(res, result.refreshToken);
             res.status(200).json({
                 message: 'Đăng nhập thành công!',
                 user: result.user,
-                token: result.token
+                token: result.accessToken
             });
+        } catch (err) {
+            next(err);
+        }
+    }
+
+    // API: Gia hạn phiên (POST /api/auth/refresh) — cookie sdl_rt, Origin đã kiểm tra ở route
+    static async refresh(req, res, next) {
+        try {
+            const result = await AuthService.refresh(readRefreshCookie(req), sessionMeta(req));
+            if (result.refreshToken) {
+                setRefreshCookie(res, result.refreshToken);
+            }
+            res.status(200).json({ user: result.user, token: result.accessToken });
+        } catch (err) {
+            if (err instanceof AppError && err.statusCode === 401) {
+                clearRefreshCookie(res);
+            }
+            next(err);
+        }
+    }
+
+    // API: Đăng xuất thiết bị hiện tại (POST /api/auth/logout)
+    static async logout(req, res, next) {
+        try {
+            await AuthService.logout(readRefreshCookie(req));
+            clearRefreshCookie(res);
+            res.status(200).json({ message: 'Đã đăng xuất.' });
+        } catch (err) {
+            next(err);
+        }
+    }
+
+    // API: Đăng xuất mọi thiết bị (POST /api/auth/logout-all) — cần access token
+    static async logoutAll(req, res, next) {
+        try {
+            await AuthService.logoutAll(req.user.id);
+            clearRefreshCookie(res);
+            res.status(200).json({ message: 'Đã đăng xuất khỏi mọi thiết bị.' });
         } catch (err) {
             next(err);
         }
@@ -102,9 +145,10 @@ class AuthController {
             }
 
             await AuthService.forgotPassword({ email: email.trim() });
-            
+
+            // Cùng một phản hồi dù email có tồn tại hay không (chống dò tài khoản, spec 002 FR-010)
             res.status(200).json({
-                message: 'Hướng dẫn khôi phục mật khẩu đã được gửi tới email của bạn!'
+                message: 'Nếu email tồn tại trong hệ thống, hướng dẫn khôi phục mật khẩu đã được gửi.'
             });
         } catch (err) {
             next(err);
@@ -119,14 +163,10 @@ class AuthController {
                 return res.status(400).json({ error: 'Mã xác thực hoặc mật khẩu mới không hợp lệ!' });
             }
 
-            // Kiểm tra tính hợp lệ của mật khẩu mới (theo quy chuẩn đăng ký)
-            if (newPassword.length < 6) {
-                return res.status(400).json({ error: 'Mật khẩu mới phải chứa ít nhất 6 ký tự!' });
-            }
-            const hasLetter = /[a-zA-Z]/.test(newPassword);
-            const hasNumber = /[0-9]/.test(newPassword);
-            if (!hasLetter || !hasNumber) {
-                return res.status(400).json({ error: 'Mật khẩu mới phải bao gồm cả chữ cái và chữ số!' });
+            // Kiểm tra tính hợp lệ của mật khẩu mới (chính sách spec 002)
+            const passwordError = validateNewPassword(newPassword);
+            if (passwordError) {
+                return res.status(400).json({ error: passwordError });
             }
 
             await AuthService.resetPassword({ token, newPassword });

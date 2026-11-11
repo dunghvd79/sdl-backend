@@ -16,7 +16,9 @@ function errorHandler(err, req, res, next) {
     }
 
     if (err instanceof AppError) {
-        return res.status(err.statusCode).json({ error: err.message });
+        const body = { error: err.message };
+        if (err.code) body.code = err.code;
+        return res.status(err.statusCode).json(body);
     }
 
     // body-parser: nội dung JSON sai cú pháp

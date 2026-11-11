@@ -411,6 +411,28 @@ if (process.env.NODE_ENV !== 'test') pool.query('SELECT NOW()', async (err, res)
         } catch (orderErr) {
             console.error('❌ Lỗi kiểm tra/cập nhật bảng orders hoặc coupons:', orderErr.message);
         }
+
+        // Bảng refresh token cho đăng nhập nhiều thiết bị (spec 002). Chỉ lưu băm SHA-256.
+        try {
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS refresh_tokens (
+                    id SERIAL PRIMARY KEY,
+                    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    token_hash CHAR(64) NOT NULL UNIQUE,
+                    family_id UUID NOT NULL,
+                    expires_at TIMESTAMP NOT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    revoked_at TIMESTAMP NULL,
+                    revoked_reason VARCHAR(20) NULL,
+                    user_agent TEXT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+                CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens(family_id);
+            `);
+            console.log('✅ Migration: Đã kiểm tra/tạo bảng refresh_tokens.');
+        } catch (rtErr) {
+            console.error('❌ Migration refresh_tokens gặp lỗi:', rtErr.message);
+        }
     }
 });
 

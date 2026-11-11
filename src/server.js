@@ -28,4 +28,14 @@ app.listen(PORT, () => {
                 console.error('❌ Lỗi quét hủy đơn hàng hết hạn ngầm:', err.message);
             });
     }, 5 * 60 * 1000);
+
+    // Dọn refresh token hết hạn quá 1 ngày, mỗi giờ một lần (spec 002, research R11)
+    const RefreshToken = require('./models/RefreshToken');
+    setInterval(() => {
+        RefreshToken.deleteExpired()
+            .then(count => {
+                if (count > 0) console.log(`🧹 Background Clean: Đã xoá ${count} refresh token hết hạn.`);
+            })
+            .catch(err => console.error('❌ Lỗi dọn refresh token hết hạn:', err.message));
+    }, 60 * 60 * 1000);
 });

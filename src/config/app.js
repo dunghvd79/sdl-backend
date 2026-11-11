@@ -17,7 +17,13 @@ app.use(helmet({
 }));
 
 // 2. Middleware cơ bản
-app.use(cors());
+// CORS (spec 002): chỉ giao diện được phép mới gửi kèm cookie phiên. Request không có Origin
+// (PayOS webhook, curl, server-to-server) vẫn được xử lý bình thường.
+const { isAllowedOrigin } = require('../utils/authTokens');
+app.use(cors({
+    origin: (origin, callback) => callback(null, !origin || isAllowedOrigin(origin)),
+    credentials: true
+}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 

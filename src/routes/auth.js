@@ -1,6 +1,6 @@
 const express = require('express');
 const authController = require('../controllers/authController');
-const { verifyToken } = require('../middleware/auth');
+const { verifyToken, requireAllowedOrigin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -10,8 +10,12 @@ router.post('/login', authController.login);
 router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
 
+// Phiên đăng nhập qua cookie sdl_rt (spec 002): chỉ nhận yêu cầu từ giao diện được phép
+router.post('/refresh', requireAllowedOrigin, authController.refresh);
+router.post('/logout', requireAllowedOrigin, authController.logout);
+router.post('/logout-all', requireAllowedOrigin, verifyToken, authController.logoutAll);
+
 // Các API Protected (Phải có Token mới vào được)
-// Ta gắn middleware verifyToken vào trước controller getProfile
 router.get('/profile', verifyToken, authController.getProfile);
 
 module.exports = router;
