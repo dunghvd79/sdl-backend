@@ -49,6 +49,7 @@ Controller là class có method `static async`, tự `try/catch` và trả `res.
 ## Quy trình làm việc
 
 - **Constitution** [.specify/memory/constitution.md](.specify/memory/constitution.md) là quy tắc cao nhất của repo; khi mâu thuẫn với file này thì constitution thắng. Thay đổi nhiều file đi theo Spec Kit (`/speckit-specify` → `plan` → `tasks` → `implement`); sửa lỗi đi theo skill `test-driven-development`. Skill nằm trong `.claude/skills/`.
+- **Backlog** [docs/BACKLOG.md](docs/BACKLOG.md): mọi điểm phát hiện nhưng chưa sửa (ngoài phạm vi, chờ quyết định, hoặc để bước sau) **phải** được ghi vào đây ngay khi phát hiện; làm xong thì chuyển xuống "Đã xong" kèm commit.
 - Lộ trình nâng cấp đã chốt và thiết kế auth mới (access/refresh token, cookie httpOnly, nhiều thiết bị): xem mục "Quyết định kỹ thuật" trong `../PROJECT_CONTEXT.local.md`.
 - Làm rõ yêu cầu và lên kế hoạch trước khi code; thay đổi đúng phạm vi, không dọn code không liên quan (theo `.cursorrules` và `PROJECT_CONTEXT.local.md` ở thư mục cha).
 - Theo `PROJECT_CONTEXT.local.md`: xong một tác vụ code hoặc fix bug thì commit và push lên `main`, việc này kích hoạt deploy Render. Trước khi push, chạy `node --check` cho các file đã sửa và kiểm tra diff không chứa bí mật.
