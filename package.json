@@ -19,9 +19,9 @@
     "type": "commonjs",
     "dependencies": {
         "@payos/node": "^2.0.5",
-        "axios": "^1.16.1",
+        "axios": "^1.21.1",
         "bcryptjs": "^3.0.3",
-        "body-parser": "^2.2.2",
+        "body-parser": "^2.4.0",
         "bullmq": "^5.79.1",
         "cors": "^2.8.6",
         "dotenv": "^17.4.2",
@@ -29,8 +29,7 @@
         "express-rate-limit": "^8.5.2",
         "helmet": "^8.2.0",
         "jsonwebtoken": "^9.0.3",
-        "multer": "^2.1.1",
-        "nodemailer": "^9.0.0",
+        "multer": "^2.5.0",
         "pg": "^8.20.0",
         "redis": "^6.0.0",
         "xss": "^1.0.15"
