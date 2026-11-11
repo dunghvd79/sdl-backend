@@ -6,7 +6,7 @@ const AiService = require('../services/aiService');
 
 class AiController {
     // POST /api/ai/ask
-    static async ask(req, res) {
+    static async ask(req, res, next) {
         try {
             let { bookId, question } = req.body;
 
@@ -79,12 +79,12 @@ class AiController {
                 data: result
             });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // GET /api/ai/chats/:bookId/history
-    static async getChatHistory(req, res) {
+    static async getChatHistory(req, res, next) {
         try {
             let { bookId } = req.params;
             const userId = req.user.id;
@@ -116,13 +116,13 @@ class AiController {
 
             res.status(200).json({ data: messagesRes.rows });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // POST /api/ai/upload/:bookId
     // Nhận file PDF từ Admin -> Forward sang FastAPI để vector hóa
-    static async uploadBookPDF(req, res) {
+    static async uploadBookPDF(req, res, next) {
         try {
             let { bookId } = req.params;
 
@@ -171,13 +171,13 @@ class AiController {
             });
         } catch (err) {
             console.error('[Admin] Lỗi vector hóa PDF:', err.message);
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // DELETE /api/ai/reset/:bookId
     // Reset/Xóa dữ liệu vector RAG của cuốn sách
-    static async resetBookRAG(req, res) {
+    static async resetBookRAG(req, res, next) {
         try {
             let { bookId } = req.params;
 
@@ -214,7 +214,7 @@ class AiController {
             });
         } catch (err) {
             console.error('[Admin] Lỗi reset RAG:', err.message);
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 }

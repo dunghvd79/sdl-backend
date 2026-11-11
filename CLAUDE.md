@@ -26,7 +26,13 @@ npx jest tests/auth.login.test.js   # chạy một file test
 
 `routes/` → `controllers/` → `services/` (nghiệp vụ, transaction) → `models/` (SQL). Route được mount ở [src/config/app.js](src/config/app.js). [src/server.js](src/server.js) khởi động app, require `config/database` và chạy Email Worker cùng job huỷ đơn ONLINE quá hạn (mỗi 5 phút).
 
-Controller là class có method `static async`, tự `try/catch` và trả `res.status(...).json({ data })` hoặc `{ error }`. Thông báo cho người dùng viết bằng tiếng Việt.
+Controller là class có method `static async (req, res, next)`, trả `res.status(...).json({ data })`. Thông báo cho người dùng viết bằng tiếng Việt.
+
+**Xử lý lỗi (spec 001):**
+- Lỗi nghiệp vụ (người dùng đọc và tự xử lý được) → `throw new AppError('<tiếng Việt>', <mã>)` từ [src/utils/AppError.js](src/utils/AppError.js). Lỗi khác cứ để ném `Error` thường.
+- Trong `catch` của controller chỉ gọi `next(err)`. **Không bao giờ** `res.json({ error: err.message })`, vì như vậy sẽ lộ lỗi DB ra ngoài.
+- [src/middleware/errorHandler.js](src/middleware/errorHandler.js): `AppError` → mã + thông báo; JSON hỏng → 400; Postgres `23505` → 400 "Dữ liệu này đã tồn tại."; còn lại → 500 chung + `errorId` (UUID), chi tiết ghi `console.error` với `[error <errorId>]` để tra trong Render Logs. `/api/*` không khớp route → 404 JSON.
+- Các nhánh kiểm tra đầu vào `return res.status(400).json({ error: '...' })` với câu cố định vẫn được giữ.
 
 ## Quy ước bắt buộc
 

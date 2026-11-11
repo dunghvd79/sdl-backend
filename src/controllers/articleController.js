@@ -3,7 +3,7 @@ const { encodeArticleId } = require('../utils/hashids');
 
 class ArticleController {
     // GET /api/articles
-    static async getAllArticles(req, res) {
+    static async getAllArticles(req, res, next) {
         try {
             const limit = parseInt(req.query.limit) || 10;
             const page = parseInt(req.query.page) || 1;
@@ -21,12 +21,12 @@ class ArticleController {
                 pagination: { page, limit, total_in_page: articles.length }
             });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // GET /api/articles/:id
-    static async getArticle(req, res) {
+    static async getArticle(req, res, next) {
         try {
             const { id } = req.params;
             const article = await Article.findById(id);
@@ -35,12 +35,12 @@ class ArticleController {
             }
             res.status(200).json({ data: article ? { ...article, hashId: encodeArticleId(article.id) } : null });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // POST /api/articles (Chỉ Admin/Curator)
-    static async createArticle(req, res) {
+    static async createArticle(req, res, next) {
         try {
             const { title, summary, content, cover_url, category, reading_time, status, is_featured } = req.body;
 
@@ -67,12 +67,12 @@ class ArticleController {
                 data: article ? { ...article, hashId: encodeArticleId(article.id) } : null
             });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // PUT /api/articles/:id (Chỉ Admin/Curator)
-    static async updateArticle(req, res) {
+    static async updateArticle(req, res, next) {
         try {
             const { id } = req.params;
             const { title, summary, content, cover_url, category, reading_time, status, is_featured } = req.body;
@@ -104,12 +104,12 @@ class ArticleController {
                 data: article ? { ...article, hashId: encodeArticleId(article.id) } : null
             });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // DELETE /api/articles/:id (Chỉ Admin)
-    static async deleteArticle(req, res) {
+    static async deleteArticle(req, res, next) {
         try {
             const { id } = req.params;
             const success = await Article.delete(id);
@@ -118,18 +118,18 @@ class ArticleController {
             }
             res.status(200).json({ message: `Đã xóa bài viết ID=${id} thành công!` });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // GET /api/articles/categories
-    static async getUniqueCategories(req, res) {
+    static async getUniqueCategories(req, res, next) {
         try {
             const adminMode = req.query.adminMode === 'true';
             const categories = await Article.getUniqueCategories(adminMode);
             res.status(200).json({ data: categories });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 }

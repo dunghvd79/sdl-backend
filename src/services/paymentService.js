@@ -2,6 +2,7 @@ const pool = require('../config/database');
 const Payment = require('../models/Payment');
 const Cart = require('../models/Cart');
 const Inventory = require('../models/Inventory');
+const AppError = require('../utils/AppError');
 // Ghi nhận một đơn đã được cổng thanh toán báo PAID. Idempotent: return URL và webhook có thể
 // cùng gọi, gọi lặp lại hoặc đồng thời, nhưng kho chỉ bị trừ đúng một lần.
 // Chỉ chuyển PENDING -> CONFIRMED; câu UPDATE có điều kiện khoá dòng đơn hàng nên yêu cầu
@@ -135,7 +136,7 @@ class PaymentService {
         // Tìm giao dịch tương ứng trong CSDL
         const payment = await Payment.findByOrderId(orderId);
         if (!payment) {
-            throw new Error('Không tìm thấy giao dịch thanh toán cho đơn hàng #' + orderId);
+            throw new AppError('Không tìm thấy giao dịch thanh toán cho đơn hàng #' + orderId, 400);
         }
 
         // Nếu trạng thái là PAID (Đã thanh toán thành công)
@@ -156,7 +157,7 @@ class PaymentService {
         // Xác thực chữ ký số webhook an toàn bằng SDK
         const verifiedData = await payos.webhooks.verify(webhookBody);
         if (!verifiedData) {
-            throw new Error('Chữ ký Webhook của PayOS không hợp lệ');
+            throw new AppError('Chữ ký Webhook của PayOS không hợp lệ', 400);
         }
 
         const orderId = verifiedData.orderCode;
@@ -164,7 +165,7 @@ class PaymentService {
         // Tìm giao dịch tương ứng trong CSDL
         const payment = await Payment.findByOrderId(orderId);
         if (!payment) {
-            throw new Error('Không tìm thấy giao dịch thanh toán cho đơn hàng #' + orderId);
+            throw new AppError('Không tìm thấy giao dịch thanh toán cho đơn hàng #' + orderId, 400);
         }
 
         // Webhook gửi thông tin thành công qua trường code = "00"

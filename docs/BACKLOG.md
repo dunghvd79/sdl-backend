@@ -39,6 +39,8 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | B22 | ⚪ | Cache Redis chỉ áp dụng cho sách (`books:*`) | |
 | B23 | ⚪ | `.cursorrules` ghi sai đường dẫn skill (`planning`, `tdd`, `review`) và tên middleware `authorizeRoles` (thực tế là `requireRole`) | |
 | B24 | ⚪ | Các file `report_*.md` (báo cáo đồ án) còn URL AI Service cũ | |
+| B26 | 🟡 | `src/services/aiService.js` `require('form-data')` nhưng `package.json` không khai báo; đang chạy được nhờ `axios` cài kèm | Thêm vào dependencies khi sửa AI Service |
+| B27 | ⚪ | Lỗi multer khác `LIMIT_FILE_SIZE` (vd sai tên field) giờ trả câu chung "File tải lên không hợp lệ." thay vì thông báo tiếng Anh của thư viện | Đổi ở spec 001; tách thông báo riêng nếu cần |
 | B25 | ⚪ | Script kiểm thử chạy tay cũ `src/utils/test_*.js`, `scratch/test_*.js` không thuộc bộ test Jest | Xoá hoặc chuyển thành test Jest |
 
 ## Đã xong
@@ -49,3 +51,4 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | VNPay cho phép giả mạo thanh toán bằng khoá dự phòng ghi cứng — đã gỡ VNPay | `6457f05` |
 | 1 critical + 6 high trong `npm audit --omit=dev`; gỡ `nodemailer` không dùng | `2082e23` |
 | Script `scratch/` ghi cứng chuỗi kết nối DB/Redis | `46923f7` |
+| 72 chỗ trả `err.message` lộ lỗi nội bộ; lỗi trùng danh mục lộ tên ràng buộc DB — xử lý lỗi tập trung (spec 001) | (commit spec 001) |

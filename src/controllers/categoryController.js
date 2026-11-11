@@ -6,7 +6,7 @@ const { getCache, setCache, delCache, clearCachePattern } = require('../config/r
 
 class CategoryController {
     // GET /api/categories
-    static async getAllCategories(req, res) {
+    static async getAllCategories(req, res, next) {
         try {
             const cacheKey = 'categories:all';
             const cachedData = await getCache(cacheKey);
@@ -19,12 +19,12 @@ class CategoryController {
 
             res.status(200).json({ data: categories });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // POST /api/categories (Chỉ Admin/Curator)
-    static async createCategory(req, res) {
+    static async createCategory(req, res, next) {
         try {
             const { name, description } = req.body;
             if (!name) return res.status(400).json({ error: 'Tên danh mục không được để trống' });
@@ -36,12 +36,12 @@ class CategoryController {
 
             res.status(201).json({ message: 'Tạo danh mục thành công', data: category });
         } catch (err) {
-            res.status(400).json({ error: err.message });
+            next(err);
         }
     }
 
     // PUT /api/categories/:id (Chỉ Admin/Curator)
-    static async updateCategory(req, res) {
+    static async updateCategory(req, res, next) {
         try {
             const { id } = req.params;
             const { name, description } = req.body;
@@ -56,12 +56,12 @@ class CategoryController {
 
             res.status(200).json({ message: 'Cập nhật danh mục thành công', data: category });
         } catch (err) {
-            res.status(400).json({ error: err.message });
+            next(err);
         }
     }
 
     // DELETE /api/categories/:id (Chỉ Admin)
-    static async deleteCategory(req, res) {
+    static async deleteCategory(req, res, next) {
         try {
             const { id } = req.params;
             const deleted = await Category.delete(id);
@@ -74,12 +74,12 @@ class CategoryController {
             res.status(200).json({ message: `Đã xóa danh mục ID=${id} thành công` });
         } catch (err) {
             // Nếu danh mục đang có sách thuộc về nó thì sẽ tự động xóa liên kết (CASCADE)
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // GET /api/categories/:id/books (Chỉ Admin/Curator)
-    static async getCategoryBooks(req, res) {
+    static async getCategoryBooks(req, res, next) {
         try {
             const { id } = req.params;
             const category = await Category.findById(id);
@@ -88,12 +88,12 @@ class CategoryController {
             const books = await Category.getBooks(id);
             res.status(200).json({ data: { category, books } });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // POST /api/categories/:id/books (Chỉ Admin/Curator)
-    static async assignBooksToCategory(req, res) {
+    static async assignBooksToCategory(req, res, next) {
         try {
             const { id } = req.params;
             const { bookIds } = req.body;
@@ -111,12 +111,12 @@ class CategoryController {
 
             res.status(200).json({ message: 'Gán sách vào danh mục thành công', data: assigned });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // DELETE /api/categories/:id/books/:bookId (Chỉ Admin/Curator)
-    static async removeBookFromCategory(req, res) {
+    static async removeBookFromCategory(req, res, next) {
         try {
             const { id, bookId } = req.params;
 
@@ -133,7 +133,7 @@ class CategoryController {
 
             res.status(200).json({ message: 'Gỡ sách khỏi danh mục thành công' });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 }

@@ -1,5 +1,6 @@
 const PaymentService = require('../services/paymentService');
 const Order = require('../models/Order');
+const AppError = require('../utils/AppError');
 
 const rawFrontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 const FRONTEND_URL = rawFrontendUrl.includes('pigeon-bookstore.netlify.app') 
@@ -8,7 +9,7 @@ const FRONTEND_URL = rawFrontendUrl.includes('pigeon-bookstore.netlify.app')
 
 class PaymentController {
     // GET /api/payments/url/:orderId
-    static async getPaymentUrl(req, res) {
+    static async getPaymentUrl(req, res, next) {
         try {
             const { orderId } = req.params;
 
@@ -34,12 +35,12 @@ class PaymentController {
                 paymentUrl: url
             });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // GET /api/payments/payos_return
-    static async payosReturn(req, res) {
+    static async payosReturn(req, res, next) {
         try {
             const { code, id, cancel, status } = req.query;
 
@@ -63,7 +64,7 @@ class PaymentController {
     }
 
     // GET /api/payments/payos_cancel
-    static async payosCancel(req, res) {
+    static async payosCancel(req, res, next) {
         try {
             const { id } = req.query;
             console.log(`PayOS Payment cancelled by user. Link ID: ${id}`);
@@ -75,7 +76,7 @@ class PaymentController {
     }
 
     // POST /api/payments/payos_webhook
-    static async payosWebhook(req, res) {
+    static async payosWebhook(req, res, next) {
         try {
             const webhookBody = req.body;
             
@@ -88,24 +89,29 @@ class PaymentController {
             
             return res.status(200).json({ success: true, message: result.message });
         } catch (err) {
-            console.error('❌ Lỗi xử lý PayOS Webhook:', err.message);
-            return res.status(400).json({ error: err.message });
+            // Phản hồi cho máy chủ PayOS: lỗi nghiệp vụ (chữ ký sai, không tìm thấy giao dịch) → 400;
+            // lỗi khác chuyển cho errorHandler (500 chung, không lộ chi tiết).
+            if (err instanceof AppError) {
+                console.error('❌ Lỗi xử lý PayOS Webhook:', err.message);
+                return res.status(err.statusCode).json({ error: err.message });
+            }
+            return next(err);
         }
     }
 
     // POST /api/payments/webhook
-    static async webhook(req, res) {
+    static async webhook(req, res, next) {
         try {
             const webhookData = req.body;
             const result = await PaymentService.processWebhook(webhookData);
             res.status(200).json(result);
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // GET /mock-gateway
-    static async renderMockGateway(req, res) {
+    static async renderMockGateway(req, res, next) {
         const { orderId, amount, paymentId } = req.query;
         res.send(`
             <!DOCTYPE html>

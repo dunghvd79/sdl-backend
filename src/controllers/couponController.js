@@ -5,7 +5,7 @@ class CouponController {
     // CUSTOMER: Validate coupon at checkout
     // GET /api/coupons/validate
     // ==========================================
-    static async validateCoupon(req, res) {
+    static async validateCoupon(req, res, next) {
         try {
             const { code, orderAmount } = req.query;
             const userId = req.user.id;
@@ -84,7 +84,7 @@ class CouponController {
                 }
             });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
@@ -93,17 +93,17 @@ class CouponController {
     // ==========================================
 
     // GET /api/coupons (Admin only - lấy tất cả coupon)
-    static async getAllCoupons(req, res) {
+    static async getAllCoupons(req, res, next) {
         try {
             const coupons = await Coupon.getAll();
             res.status(200).json({ data: coupons });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // POST /api/coupons (Admin - tạo coupon mới)
-    static async createCoupon(req, res) {
+    static async createCoupon(req, res, next) {
         try {
             const { code, discount_type, discount_value, min_order_amount, max_discount_amount, start_date, end_date, usage_limit } = req.body;
 
@@ -121,12 +121,12 @@ class CouponController {
             if (error.code === '23505') { // Unique constraint violation
                 return res.status(400).json({ error: 'Mã giảm giá này đã tồn tại trong hệ thống' });
             }
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // PUT /api/coupons/:id (Admin - cập nhật coupon)
-    static async updateCoupon(req, res) {
+    static async updateCoupon(req, res, next) {
         try {
             const { id } = req.params;
             const { code, discount_type, discount_value, min_order_amount, max_discount_amount, start_date, end_date, usage_limit, is_active } = req.body;
@@ -143,12 +143,12 @@ class CouponController {
             if (error.code === '23505') {
                 return res.status(400).json({ error: 'Mã giảm giá này đã tồn tại trong hệ thống' });
             }
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // PATCH /api/coupons/:id/toggle (Admin - bật/tắt coupon nhanh)
-    static async toggleCoupon(req, res) {
+    static async toggleCoupon(req, res, next) {
         try {
             const { id } = req.params;
             const { is_active } = req.body;
@@ -161,12 +161,12 @@ class CouponController {
                 data: coupon 
             });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // DELETE /api/coupons/:id (Admin - xóa coupon)
-    static async deleteCoupon(req, res) {
+    static async deleteCoupon(req, res, next) {
         try {
             const { id } = req.params;
             const deleted = await Coupon.delete(id);
@@ -174,7 +174,7 @@ class CouponController {
 
             res.status(200).json({ message: `Đã xóa mã giảm giá ID=${id} thành công!` });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
@@ -182,13 +182,13 @@ class CouponController {
     // CUSTOMER: Get active coupons list (Public / Customer)
     // GET /api/coupons/active
     // ==========================================
-    static async getActiveCoupons(req, res) {
+    static async getActiveCoupons(req, res, next) {
         try {
             const userId = req.user ? req.user.id : null;
             const coupons = await Coupon.getActive(userId);
             res.status(200).json({ data: coupons });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 }

@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const EmailService = require('./emailService');
 const { queueResetPasswordEmail } = require('../queues/emailQueue');
+const AppError = require('../utils/AppError');
 
 class AuthService {
     // Logic Đăng ký
@@ -14,7 +15,7 @@ class AuthService {
         // 1. Kiểm tra xem email đã tồn tại chưa
         const existingUser = await User.findByEmail(email);
         if (existingUser) {
-            throw new Error('Email này đã được đăng ký!');
+            throw new AppError('Email này đã được đăng ký!', 400);
         }
 
         // 2. Tạo user mới
@@ -33,17 +34,17 @@ class AuthService {
         // 1. Tìm user bằng email
         const user = await User.findByEmail(email);
         if (!user) {
-            throw new Error('Email hoặc mật khẩu không chính xác!');
+            throw new AppError('Email hoặc mật khẩu không chính xác!', 401);
         }
 
         if (user.is_active === false) {
-            throw new Error('Tài khoản của bạn đã bị khóa bởi quản trị viên!');
+            throw new AppError('Tài khoản của bạn đã bị khóa bởi quản trị viên!', 401);
         }
 
         // 2. Kiểm tra mật khẩu
         const isPasswordValid = await User.verifyPassword(password, user.password_hash);
         if (!isPasswordValid) {
-            throw new Error('Email hoặc mật khẩu không chính xác!');
+            throw new AppError('Email hoặc mật khẩu không chính xác!', 401);
         }
 
         // 3. Đăng nhập thành công -> Tạo token với Session ID mới
@@ -90,7 +91,7 @@ class AuthService {
         // 1. Tìm user theo email
         const user = await User.findByEmail(email);
         if (!user) {
-            throw new Error('Email này không tồn tại trong hệ thống!');
+            throw new AppError('Email này không tồn tại trong hệ thống!', 400);
         }
 
         // 2. Tạo token ngẫu nhiên bảo mật (32 bytes = 64 ký tự hex)
@@ -113,7 +114,7 @@ class AuthService {
         // 1. Kiểm tra token và hạn dùng
         const user = await User.findByResetToken(token);
         if (!user) {
-            throw new Error('Liên kết khôi phục mật khẩu không hợp lệ hoặc đã hết hạn!');
+            throw new AppError('Liên kết khôi phục mật khẩu không hợp lệ hoặc đã hết hạn!', 400);
         }
 
         // 2. Cập nhật mật khẩu mới và xóa token

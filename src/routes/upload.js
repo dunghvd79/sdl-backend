@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { verifyToken, requireRole } = require('../middleware/auth');
+const AppError = require('../utils/AppError');
 
 const router = express.Router();
 
@@ -34,7 +35,7 @@ const fileFilter = (req, file, cb) => {
     if (allowedTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('Chỉ chấp nhận file ảnh (JPEG, PNG, WEBP, GIF)'), false);
+        cb(new AppError('Chỉ chấp nhận file ảnh (JPEG, PNG, WEBP, GIF)', 400), false);
     }
 };
 
@@ -48,7 +49,7 @@ const upload = multer({
 
 // ─── Route: POST /api/upload/cover ──────────────────────────────────────────
 // Chỉ Admin và Curator mới được upload
-router.post('/cover', verifyToken, requireRole(['ADMIN', 'CURATOR']), upload.single('cover'), (req, res) => {
+router.post('/cover', verifyToken, requireRole(['ADMIN', 'CURATOR']), upload.single('cover'), (req, res, next) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'Không tìm thấy file ảnh trong request' });
@@ -68,17 +69,18 @@ router.post('/cover', verifyToken, requireRole(['ADMIN', 'CURATOR']), upload.sin
             }
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        next(err);
     }
 });
 
 // ─── Middleware xử lý lỗi Multer ────────────────────────────────────────────
+// Chỉ xử lý lỗi của multer; lỗi nghiệp vụ (AppError) và lỗi hệ thống đi tiếp tới errorHandler chung.
 router.use((err, req, res, next) => {
     if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({ error: 'File ảnh quá lớn! Tối đa 5MB.' });
     }
-    if (err.message) {
-        return res.status(400).json({ error: err.message });
+    if (err instanceof multer.MulterError) {
+        return res.status(400).json({ error: 'File tải lên không hợp lệ.' });
     }
     next(err);
 });

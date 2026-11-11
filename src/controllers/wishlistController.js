@@ -3,7 +3,7 @@ const { encodeBookId, decodeBookId } = require('../utils/hashids');
 
 class WishlistController {
     // POST /api/wishlists/toggle
-    static async toggle(req, res) {
+    static async toggle(req, res, next) {
         try {
             const { bookId } = req.body;
             const userId = req.user.id;
@@ -51,12 +51,12 @@ class WishlistController {
                 data: { isLiked }
             });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // GET /api/wishlists
-    static async getMyWishlist(req, res) {
+    static async getMyWishlist(req, res, next) {
         try {
             const userId = req.user.id;
 
@@ -70,12 +70,12 @@ class WishlistController {
 
             res.status(200).json({ data: result.rows.map(b => ({ ...b, hashId: encodeBookId(b.id) })) });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // GET /api/wishlists/admin/stats (Chỉ dành cho ADMIN/CURATOR)
-    static async getWishlistStats(req, res) {
+    static async getWishlistStats(req, res, next) {
         try {
             const result = await pool.query(`
                 SELECT b.id, b.title, b.author, b.cover_url, COUNT(w.id) as like_count
@@ -88,7 +88,7 @@ class WishlistController {
 
             res.status(200).json({ data: result.rows.map(b => ({ ...b, hashId: encodeBookId(b.id) })) });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 }

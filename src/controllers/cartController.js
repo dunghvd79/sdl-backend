@@ -24,18 +24,18 @@ function formatCart(cart) {
 
 class CartController {
     // GET /api/cart
-    static async getCart(req, res) {
+    static async getCart(req, res, next) {
         try {
             // Lấy ID của user đang đăng nhập từ token
             const cart = await CartService.getCart(req.user.id);
             res.status(200).json({ data: formatCart(cart) });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // POST /api/cart/add
-    static async addToCart(req, res) {
+    static async addToCart(req, res, next) {
         try {
             const { bookId, quantity } = req.body;
             if (!bookId || !quantity) return res.status(400).json({ error: 'Thiếu bookId hoặc quantity' });
@@ -48,12 +48,12 @@ class CartController {
             const item = await CartService.addToCart(req.user.id, targetBookId, quantity);
             res.status(200).json({ message: 'Đã thêm sách vào giỏ', data: item ? { ...item, hashId: encodeBookId(item.bookId) } : null });
         } catch (err) {
-            res.status(400).json({ error: err.message });
+            next(err);
         }
     }
 
     // POST /api/cart/add-batch
-    static async addBatchToCart(req, res) {
+    static async addBatchToCart(req, res, next) {
         try {
             const { items } = req.body;
             if (!Array.isArray(items) || items.length === 0) {
@@ -69,12 +69,12 @@ class CartController {
             const data = await CartService.addBatchToCart(req.user.id, targetItems);
             res.status(200).json({ message: 'Đã thêm danh sách sách vào giỏ', data });
         } catch (err) {
-            res.status(400).json({ error: err.message });
+            next(err);
         }
     }
 
     // DELETE /api/cart/remove/:bookId
-    static async removeFromCart(req, res) {
+    static async removeFromCart(req, res, next) {
         try {
             const { bookId } = req.params;
             let targetBookId = bookId;
@@ -84,23 +84,23 @@ class CartController {
             await CartService.removeFromCart(req.user.id, targetBookId);
             res.status(200).json({ message: 'Đã xóa sách khỏi giỏ hàng' });
         } catch (err) {
-            res.status(400).json({ error: err.message });
+            next(err);
         }
     }
 
     // POST /api/cart/checkout
-    static async prepareCheckout(req, res) {
+    static async prepareCheckout(req, res, next) {
         try {
             const { selectedBookIds } = req.body;
             const result = await CartService.prepareCheckout(req.user.id, selectedBookIds);
             res.status(200).json(result);
         } catch (err) {
-            res.status(400).json({ error: err.message });
+            next(err);
         }
     }
 
     // POST /api/cart/remove-bulk
-    static async removeBulkFromCart(req, res) {
+    static async removeBulkFromCart(req, res, next) {
         try {
             const { bookIds } = req.body;
             if (!bookIds || !Array.isArray(bookIds) || bookIds.length === 0) {
@@ -117,7 +117,7 @@ class CartController {
             await CartService.removeBulkFromCart(req.user.id, decodedBookIds);
             res.status(200).json({ message: 'Đã xóa các sách khỏi giỏ hàng' });
         } catch (err) {
-            res.status(400).json({ error: err.message });
+            next(err);
         }
     }
 }

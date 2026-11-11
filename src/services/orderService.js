@@ -5,6 +5,7 @@ const Cart = require('../models/Cart');
 const pool = require('../config/database');
 const Coupon = require('../models/Coupon');
 const Inventory = require('../models/Inventory');
+const AppError = require('../utils/AppError');
 
 class OrderService {
     // Biến Giỏ hàng thành Đơn hàng
@@ -16,7 +17,7 @@ class OrderService {
             // 1. Lấy giỏ hàng hiện tại của User
             const cart = await Cart.getByUserId(userId);
             if (!cart || !cart.items || cart.items.length === 0) {
-                throw new Error('Giỏ hàng trống, không thể thanh toán!');
+                throw new AppError('Giỏ hàng trống, không thể thanh toán!', 400);
             }
 
             let itemsToOrder = cart.items;
@@ -32,7 +33,7 @@ class OrderService {
             }
 
             if (!itemsToOrder || itemsToOrder.length === 0) {
-                throw new Error('Không có sản phẩm nào được chọn để thanh toán!');
+                throw new AppError('Không có sản phẩm nào được chọn để thanh toán!', 400);
             }
 
             // 2. Tính tổng tiền của cả đơn hàng
@@ -47,33 +48,33 @@ class OrderService {
             if (couponCode && couponCode.trim() !== '') {
                 const coupon = await Coupon.findByCode(couponCode);
                 if (!coupon) {
-                    throw new Error('Mã giảm giá không tồn tại');
+                    throw new AppError('Mã giảm giá không tồn tại', 400);
                 }
                 if (!coupon.is_active) {
-                    throw new Error('Mã giảm giá đã bị vô hiệu hóa');
+                    throw new AppError('Mã giảm giá đã bị vô hiệu hóa', 400);
                 }
                 const now = new Date();
                 const start = new Date(coupon.start_date);
                 const end = new Date(coupon.end_date);
                 if (now < start) {
-                    throw new Error('Mã giảm giá chưa đến thời gian áp dụng');
+                    throw new AppError('Mã giảm giá chưa đến thời gian áp dụng', 400);
                 }
                 if (now > end) {
-                    throw new Error('Mã giảm giá đã hết hạn sử dụng');
+                    throw new AppError('Mã giảm giá đã hết hạn sử dụng', 400);
                 }
                 if (coupon.used_count >= coupon.usage_limit) {
-                    throw new Error('Mã giảm giá đã hết lượt sử dụng');
+                    throw new AppError('Mã giảm giá đã hết lượt sử dụng', 400);
                 }
 
                 // Kiểm tra xem người dùng đã dùng mã giảm giá này chưa
                 const isUsed = await Coupon.checkUserUsed(userId, coupon.id);
                 if (isUsed) {
-                    throw new Error('Bạn đã sử dụng mã giảm giá này cho đơn hàng khác rồi');
+                    throw new AppError('Bạn đã sử dụng mã giảm giá này cho đơn hàng khác rồi', 400);
                 }
 
                 // Kiểm tra giá trị đơn hàng tối thiểu
                 if (totalAmount < Number(coupon.min_order_amount)) {
-                    throw new Error(`Mã giảm giá này chỉ áp dụng cho đơn hàng tối thiểu từ ${Number(coupon.min_order_amount).toLocaleString('vi-VN')} đ`);
+                    throw new AppError(`Mã giảm giá này chỉ áp dụng cho đơn hàng tối thiểu từ ${Number(coupon.min_order_amount).toLocaleString('vi-VN')} đ`, 400);
                 }
 
                 // Tính số tiền được giảm
@@ -155,17 +156,17 @@ class OrderService {
 
             const order = await Order.findById(orderId);
             if (!order) {
-                throw new Error('Không tìm thấy đơn hàng!');
+                throw new AppError('Không tìm thấy đơn hàng!', 400);
             }
 
             // Kiểm tra quyền sở hữu đơn hàng
             if (order.user_id !== userId) {
-                throw new Error('Bạn không có quyền hủy đơn hàng này!');
+                throw new AppError('Bạn không có quyền hủy đơn hàng này!', 400);
             }
 
             const allowedStatuses = ['PENDING', 'CONFIRMED', 'PACKAGING'];
             if (!allowedStatuses.includes(order.status)) {
-                throw new Error('Đơn hàng đã được giao hoặc đang vận chuyển, không thể tự hủy. Vui lòng liên hệ bộ phận hỗ trợ!');
+                throw new AppError('Đơn hàng đã được giao hoặc đang vận chuyển, không thể tự hủy. Vui lòng liên hệ bộ phận hỗ trợ!', 400);
             }
 
             const oldStatus = order.status;
@@ -285,16 +286,16 @@ class OrderService {
             const order = orderRes.rows[0];
 
             if (!order) {
-                throw new Error('Không tìm thấy đơn hàng!');
+                throw new AppError('Không tìm thấy đơn hàng!', 400);
             }
             if (order.user_id !== userId) {
-                throw new Error('Bạn không có quyền thay đổi đơn hàng này!');
+                throw new AppError('Bạn không có quyền thay đổi đơn hàng này!', 400);
             }
             if (order.status !== 'PENDING') {
-                throw new Error('Chỉ có thể thay đổi phương thức thanh toán cho đơn hàng đang chờ xử lý!');
+                throw new AppError('Chỉ có thể thay đổi phương thức thanh toán cho đơn hàng đang chờ xử lý!', 400);
             }
             if (order.payment_method !== 'ONLINE') {
-                throw new Error('Chỉ hỗ trợ chuyển đổi từ thanh toán ONLINE sang COD!');
+                throw new AppError('Chỉ hỗ trợ chuyển đổi từ thanh toán ONLINE sang COD!', 400);
             }
 
             // 2. Cập nhật phương thức thanh toán thành COD

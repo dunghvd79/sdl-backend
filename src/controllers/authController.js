@@ -2,7 +2,7 @@ const AuthService = require('../services/authService');
 
 class AuthController {
     // API: Đăng ký tài khoản (POST /api/auth/register)
-    static async register(req, res) {
+    static async register(req, res, next) {
         try {
             const { email, password, fullName } = req.body;
 
@@ -55,12 +55,12 @@ class AuthController {
                 token: result.token
             });
         } catch (err) {
-            res.status(400).json({ error: err.message }); // Bắt lỗi (VD: Trùng email)
+            next(err); // Bắt lỗi (VD: Trùng email)
         }
     }
 
     // API: Đăng nhập (POST /api/auth/login)
-    static async login(req, res) {
+    static async login(req, res, next) {
         try {
             const { email, password } = req.body;
 
@@ -76,12 +76,12 @@ class AuthController {
                 token: result.token
             });
         } catch (err) {
-            res.status(401).json({ error: err.message });
+            next(err);
         }
     }
 
     // API: Xem thông tin cá nhân (GET /api/auth/profile)
-    static async getProfile(req, res) {
+    static async getProfile(req, res, next) {
         try {
             // Nhờ middleware verifyToken, ta đã có req.user
             res.status(200).json({
@@ -89,12 +89,12 @@ class AuthController {
                 user: req.user
             });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // API: Yêu cầu khôi phục mật khẩu (POST /api/auth/forgot-password)
-    static async forgotPassword(req, res) {
+    static async forgotPassword(req, res, next) {
         try {
             const { email } = req.body;
             if (!email) {
@@ -107,12 +107,12 @@ class AuthController {
                 message: 'Hướng dẫn khôi phục mật khẩu đã được gửi tới email của bạn!'
             });
         } catch (err) {
-            res.status(400).json({ error: err.message });
+            next(err);
         }
     }
 
     // API: Đặt lại mật khẩu mới (POST /api/auth/reset-password)
-    static async resetPassword(req, res) {
+    static async resetPassword(req, res, next) {
         try {
             const { token, newPassword } = req.body;
             if (!token || !newPassword) {
@@ -135,7 +135,7 @@ class AuthController {
                 message: 'Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới.'
             });
         } catch (err) {
-            res.status(400).json({ error: err.message });
+            next(err);
         }
     }
 }

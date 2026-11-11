@@ -4,6 +4,7 @@
 // ==========================================
 const axios = require('axios');
 const FormData = require('form-data');
+const AppError = require('../utils/AppError');
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000';
 
@@ -18,7 +19,7 @@ class AiService {
             return response.data;
         } catch (error) {
             console.error('Lỗi khi gọi sang AI Service:', error.message);
-            throw new Error('Hệ thống AI đang bận hoặc mất kết nối, vui lòng thử lại sau.');
+            throw new AppError('Hệ thống AI đang bận hoặc mất kết nối, vui lòng thử lại sau.', 500);
         }
     }
 
@@ -47,8 +48,8 @@ class AiService {
 
             return response.data;
         } catch (error) {
-            console.error('Lỗi khi upload PDF sang AI Service:', error.message);
-            throw new Error('Không thể tải lên file PDF cho AI Service. ' + (error.response?.data?.detail || error.message));
+            console.error('Lỗi khi upload PDF sang AI Service:', error.response?.data?.detail || error.message);
+            throw new AppError('Không thể tải lên file PDF cho AI Service.', 500);
         }
     }
 
@@ -58,8 +59,8 @@ class AiService {
             const response = await axios.delete(`${AI_SERVICE_URL}/api/documents/${bookId}`);
             return response.data;
         } catch (error) {
-            console.error('Lỗi khi gọi xóa vector sang AI Service:', error.message);
-            throw new Error('Không thể xóa dữ liệu vector hóa cho AI Service. ' + (error.response?.data?.detail || error.message));
+            console.error('Lỗi khi gọi xóa vector sang AI Service:', error.response?.data?.detail || error.message);
+            throw new AppError('Không thể xóa dữ liệu vector hóa cho AI Service.', 500);
         }
     }
 }

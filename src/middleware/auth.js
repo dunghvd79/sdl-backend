@@ -44,7 +44,7 @@ const verifyToken = async (req, res, next) => {
         };
         next(); // Cho phép đi tiếp
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        next(err);
     }
 };
 

@@ -2,7 +2,7 @@ const pool = require('../config/database');
 
 class NotificationController {
     // GET /api/notifications
-    static async getMyNotifications(req, res) {
+    static async getMyNotifications(req, res, next) {
         try {
             const userId = req.user.id;
 
@@ -13,12 +13,12 @@ class NotificationController {
 
             res.status(200).json({ data: result.rows });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // PUT /api/notifications/:id/read
-    static async markAsRead(req, res) {
+    static async markAsRead(req, res, next) {
         try {
             const { id } = req.params;
             const userId = req.user.id;
@@ -37,12 +37,12 @@ class NotificationController {
                 data: result.rows[0]
             });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // PUT /api/notifications/read-all
-    static async markAllAsRead(req, res) {
+    static async markAllAsRead(req, res, next) {
         try {
             const userId = req.user.id;
 
@@ -55,7 +55,7 @@ class NotificationController {
                 message: 'Đã đánh dấu tất cả thông báo là đã đọc!'
             });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 }

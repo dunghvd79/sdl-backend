@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const AppError = require('../utils/AppError');
 
 class Inventory {
     // Xem trạng thái kho của 1 cuốn sách (tự khởi tạo nếu chưa có)
@@ -27,7 +28,7 @@ class Inventory {
     // Kiểm tra xem còn đủ sách bán không
     static async checkAvailability(bookId, quantity) {
         const inventory = await this.getStatus(bookId);
-        if (!inventory) throw new Error('Không tìm thấy thông tin kho của sách này');
+        if (!inventory) throw new AppError('Không tìm thấy thông tin kho của sách này', 400);
 
         // Số lượng thực bán = Tổng sẵn có - Đang giữ chỗ cho người khác
         const available = inventory.available_qty - inventory.reserved_qty;
@@ -60,7 +61,7 @@ class Inventory {
             }
 
             const available = inventory.available_qty - inventory.reserved_qty;
-            if (available < quantity) throw new Error(`Kho chỉ còn ${available} cuốn`);
+            if (available < quantity) throw new AppError(`Kho chỉ còn ${available} cuốn`, 400);
 
             // Cộng dồn số lượng vào cột "Giữ chỗ" (reserved_qty)
             const queryUpdate = `

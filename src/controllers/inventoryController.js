@@ -4,7 +4,7 @@ const { clearCachePattern } = require('../config/redis');
 class InventoryController {
     // GET /api/inventory
     // Lấy danh sách tất cả sách cùng thông tin kho hàng tương ứng
-    static async getAll(req, res) {
+    static async getAll(req, res, next) {
         try {
             const query = `
                 SELECT 
@@ -23,13 +23,13 @@ class InventoryController {
             const result = await pool.query(query);
             res.status(200).json({ data: result.rows });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // PUT /api/inventory/:bookId
     // Cập nhật số lượng sẵn có (available_qty) cho một cuốn sách và ghi nhật ký
-    static async updateAvailableQty(req, res) {
+    static async updateAvailableQty(req, res, next) {
         const client = await pool.connect();
         try {
             const { bookId } = req.params;
@@ -82,7 +82,7 @@ class InventoryController {
             });
         } catch (err) {
             await client.query('ROLLBACK');
-            res.status(500).json({ error: err.message });
+            next(err);
         } finally {
             client.release();
         }
@@ -90,7 +90,7 @@ class InventoryController {
 
     // GET /api/inventory/transactions
     // Lấy lịch sử biến động kho (Tối đa 100 giao dịch mới nhất)
-    static async getTransactionHistory(req, res) {
+    static async getTransactionHistory(req, res, next) {
         try {
             const query = `
                 SELECT 
@@ -116,7 +116,7 @@ class InventoryController {
             const result = await pool.query(query);
             res.status(200).json({ data: result.rows });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 }

@@ -8,7 +8,7 @@ class AdminController {
     // ==========================================
 
     // GET /api/admin/orders?status=&date=&page=&limit=
-    static async getAllOrders(req, res) {
+    static async getAllOrders(req, res, next) {
         try {
             const { status, date, page = 1, limit = 20 } = req.query;
             const offset = (page - 1) * limit;
@@ -57,12 +57,12 @@ class AdminController {
 
             res.status(200).json({ data: formattedOrders });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // PUT /api/admin/orders/:orderId/status
-    static async updateOrderStatus(req, res) {
+    static async updateOrderStatus(req, res, next) {
         try {
             const { orderId } = req.params;
             const { status } = req.body;
@@ -150,7 +150,7 @@ class AdminController {
                 client.release();
             }
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
@@ -159,7 +159,7 @@ class AdminController {
     // ==========================================
 
     // GET /api/admin/users?search=&role=
-    static async getAllUsers(req, res) {
+    static async getAllUsers(req, res, next) {
         try {
             const { search, role } = req.query;
             let query = `
@@ -195,12 +195,12 @@ class AdminController {
             const result = await pool.query(query, params);
             res.status(200).json({ data: result.rows });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // PUT /api/admin/users/:userId/role
-    static async updateUserRole(req, res) {
+    static async updateUserRole(req, res, next) {
         try {
             const { userId } = req.params;
             const { role } = req.body;
@@ -227,12 +227,12 @@ class AdminController {
                 data: result.rows[0]
             });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // PUT /api/admin/users/:userId/status
-    static async toggleUserStatus(req, res) {
+    static async toggleUserStatus(req, res, next) {
         try {
             const { userId } = req.params;
             const { isActive } = req.body;
@@ -256,12 +256,12 @@ class AdminController {
                 data: updatedUser
             });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // DELETE /api/admin/users/:userId
-    static async deleteUser(req, res) {
+    static async deleteUser(req, res, next) {
         const client = await pool.connect();
         try {
             const { userId } = req.params;
@@ -326,14 +326,14 @@ class AdminController {
             });
         } catch (error) {
             await client.query('ROLLBACK');
-            res.status(500).json({ error: error.message });
+            next(error);
         } finally {
             client.release();
         }
     }
 
     // GET /api/admin/stats
-    static async getDashboardStats(req, res) {
+    static async getDashboardStats(req, res, next) {
         try {
             // 1. Tổng doanh thu & giảm giá (không tính CANCELLED)
             const revenueQuery = `
@@ -428,12 +428,12 @@ class AdminController {
                 recentOrders: recentOrdersRes.rows
             });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // GET /api/admin/users/:userId/activity
-    static async getUserActivity(req, res) {
+    static async getUserActivity(req, res, next) {
         try {
             const { userId } = req.params;
 
@@ -500,12 +500,12 @@ class AdminController {
                 }
             });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // GET /api/admin/chats/:sessionId/messages
-    static async getChatMessages(req, res) {
+    static async getChatMessages(req, res, next) {
         try {
             const { sessionId } = req.params;
             const messagesRes = await pool.query(`
@@ -516,7 +516,7 @@ class AdminController {
             `, [sessionId]);
             res.status(200).json({ data: messagesRes.rows });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 }

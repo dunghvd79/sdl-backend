@@ -2,7 +2,7 @@ const Review = require('../models/Review');
 
 class ReviewController {
     // GET /api/books/:id/reviews
-    static async getReviews(req, res) {
+    static async getReviews(req, res, next) {
         try {
             const { id } = req.params; // book_id
             
@@ -17,12 +17,12 @@ class ReviewController {
                 }
             });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // POST /api/books/:id/reviews (Yêu cầu đăng nhập)
-    static async createReview(req, res) {
+    static async createReview(req, res, next) {
         try {
             const { id } = req.params; // book_id
             const userId = req.user.id;
@@ -58,7 +58,7 @@ class ReviewController {
                 data: review
             });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 }

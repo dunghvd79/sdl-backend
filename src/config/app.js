@@ -81,12 +81,9 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Middleware bắt lỗi chung
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({
-        error: process.env.NODE_ENV === 'development' ? err.message : 'Internal Server Error'
-    });
-});
+// Xử lý lỗi tập trung: /api không khớp route → 404 JSON; mọi lỗi → errorHandler (spec 001)
+const { notFound, errorHandler } = require('../middleware/errorHandler');
+app.use('/api', notFound);
+app.use(errorHandler);
 
 module.exports = app;

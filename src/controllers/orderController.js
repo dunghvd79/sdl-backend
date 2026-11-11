@@ -18,7 +18,7 @@ function formatOrder(order) {
 
 class OrderController {
     // POST /api/orders/checkout
-    static async checkout(req, res) {
+    static async checkout(req, res, next) {
         try {
             const { shippingName, shippingPhone, shippingAddress, shippingNotes, paymentMethod, couponCode, selectedBookIds } = req.body;
 
@@ -50,22 +50,22 @@ class OrderController {
                 data: formatOrder(order)
             });
         } catch (err) {
-            res.status(400).json({ error: err.message });
+            next(err);
         }
     }
 
     // GET /api/orders
-    static async getMyOrders(req, res) {
+    static async getMyOrders(req, res, next) {
         try {
             const orders = await OrderService.getUserOrders(req.user.id);
             res.status(200).json({ data: orders.map(formatOrder) });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // GET /api/orders/:id
-    static async getOrderDetails(req, res) {
+    static async getOrderDetails(req, res, next) {
         try {
             const { id } = req.params;
             const order = await OrderService.getOrderById(id);
@@ -81,12 +81,12 @@ class OrderController {
 
             res.status(200).json({ data: formatOrder(order) });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // PUT /api/orders/:id/cancel
-    static async cancelOrder(req, res) {
+    static async cancelOrder(req, res, next) {
         try {
             const { id } = req.params;
             const userId = req.user.id;
@@ -99,12 +99,12 @@ class OrderController {
                 data: formatOrder(updatedOrder)
             });
         } catch (err) {
-            res.status(400).json({ error: err.message });
+            next(err);
         }
     }
 
     // PUT /api/orders/:id/change-to-cod
-    static async changeToCod(req, res) {
+    static async changeToCod(req, res, next) {
         try {
             const { id } = req.params;
             const userId = req.user.id;
@@ -116,7 +116,7 @@ class OrderController {
                 data: formatOrder(updatedOrder)
             });
         } catch (err) {
-            res.status(400).json({ error: err.message });
+            next(err);
         }
     }
 }

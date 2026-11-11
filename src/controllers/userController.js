@@ -4,7 +4,7 @@ const User = require('../models/User');
 
 class UserController {
     // GET /api/users/profile
-    static async getProfile(req, res) {
+    static async getProfile(req, res, next) {
         try {
             const user = await User.findById(req.user.id);
             if (!user) {
@@ -13,12 +13,12 @@ class UserController {
 
             res.status(200).json({ data: user });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // PUT /api/users/profile
-    static async updateProfile(req, res) {
+    static async updateProfile(req, res, next) {
         try {
             const { full_name, phone, address } = req.body;
             
@@ -44,12 +44,12 @@ class UserController {
                 data: updatedUser 
             });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 
     // PUT /api/users/change-password
-    static async changePassword(req, res) {
+    static async changePassword(req, res, next) {
         try {
             const { currentPassword, newPassword } = req.body;
 
@@ -86,7 +86,7 @@ class UserController {
 
             res.status(200).json({ message: 'Đổi mật khẩu thành công' });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            next(error);
         }
     }
 }

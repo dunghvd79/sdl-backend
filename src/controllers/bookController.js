@@ -88,7 +88,7 @@ function handleDatabaseError(err) {
 
 class BookController {
     // GET /api/books
-    static async getAllBooks(req, res) {
+    static async getAllBooks(req, res, next) {
         try {
             // Lấy tham số từ URL (VD: ?limit=10&page=1&search=harry&categoryId=1&sortBy=price_asc&maxPrice=150000)
             const limit = parseInt(req.query.limit) || 10;
@@ -120,12 +120,12 @@ class BookController {
 
             res.status(200).json(responseData);
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // POST /api/books (Chỉ Admin/Curator)
-    static async createBook(req, res) {
+    static async createBook(req, res, next) {
         try {
             const { title, author, isbn, description, price, categories, cover_url, status, is_featured, is_bestseller, display_order, images } = req.body;
 
@@ -154,7 +154,7 @@ class BookController {
     }
 
     // GET /api/books/:id
-    static async getBook(req, res) {
+    static async getBook(req, res, next) {
         try {
             const { id } = req.params;
             const cacheKey = `books:detail:${id}`;
@@ -173,12 +173,12 @@ class BookController {
 
             res.status(200).json({ data: responseData });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 
     // PUT /api/books/:id (Chỉ Admin/Curator)
-    static async updateBook(req, res) {
+    static async updateBook(req, res, next) {
         try {
             const { id } = req.params;
             const { title, author, isbn, description, price, categories, cover_url, status, is_featured, is_bestseller, display_order, images } = req.body;
@@ -242,7 +242,7 @@ class BookController {
     }
 
     // DELETE /api/books/:id (Chỉ Admin)
-    static async deleteBook(req, res) {
+    static async deleteBook(req, res, next) {
         try {
             const { id } = req.params;
             const pool = require('../config/database');
@@ -257,7 +257,7 @@ class BookController {
 
             res.status(200).json({ message: `Đã xóa sách ID=${id} thành công!` });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            next(err);
         }
     }
 }
