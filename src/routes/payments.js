@@ -27,6 +27,5 @@ router.get('/payos_cancel', paymentController.payosCancel);
 // 4. API Webhook nhận kết quả thanh toán nền của PayOS (PayOS gọi server-to-server - KHÔNG CẦN ĐĂNG NHẬP)
 router.post('/payos_webhook', paymentController.payosWebhook);
 
-router.post('/webhook', paymentController.webhook);
 
 module.exports = router;

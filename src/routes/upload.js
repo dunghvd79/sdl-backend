@@ -16,6 +16,14 @@ if (!fs.existsSync(UPLOAD_DIR)) {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
+const MIME_EXTENSIONS = {
+    'image/jpeg': '.jpg',
+    'image/jpg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'image/gif': '.gif'
+};
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, UPLOAD_DIR);
@@ -23,7 +31,9 @@ const storage = multer.diskStorage({
     filename: (req, file, cb) => {
         // Đặt tên file: cover-<timestamp>-<random>.<ext>
         // VD: cover-1716374800000-abc123.jpg
-        const ext = path.extname(file.originalname).toLowerCase();
+        // Đuôi file lấy theo loại ảnh đã được fileFilter chấp nhận, KHÔNG theo tên client gửi
+        // (tránh lưu .html/.svg rồi phục vụ như trang web — backlog B10)
+        const ext = MIME_EXTENSIONS[file.mimetype];
         const uniqueName = `cover-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
         cb(null, uniqueName);
     }

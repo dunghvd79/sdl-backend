@@ -74,9 +74,6 @@ app.use('/api/notifications', require('../routes/notifications')); // ✅ route 
 app.use('/api/articles', require('../routes/articles'));         // ✅ route của bài viết (CMS)
 
 
-// Route thanh toán giả lập (Mock Payment Gateway HTML)
-const paymentController = require('../controllers/paymentController');
-app.get('/mock-gateway', paymentController.renderMockGateway);
 
 // API kiểm tra server sống hay chết
 app.get('/api/health', (req, res) => {

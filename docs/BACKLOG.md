@@ -10,9 +10,6 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 
 | # | Mức | Việc | Bước |
 |---|---|---|---|
-| B8 | 🟠 | `/mock-gateway` bật trên production, chèn `orderId`/`amount` vào HTML không escape (XSS phản chiếu) | 7 |
-| B9 | 🟡 | `/api/payments/webhook` gọi `PaymentService.processWebhook` không tồn tại → luôn 500 | 7 |
-| B10 | 🟡 | Upload ảnh tin `mimetype` do client gửi và giữ đuôi file gốc (có thể lưu `.html` dưới dạng ảnh) | 7 |
 
 ## Chưa lên lịch
 
@@ -55,8 +52,11 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | 1 critical + 6 high trong `npm audit --omit=dev`; gỡ `nodemailer` không dùng | `2082e23` |
 | Script `scratch/` ghi cứng chuỗi kết nối DB/Redis | `46923f7` |
 | 72 chỗ trả `err.message` lộ lỗi nội bộ; lỗi trùng danh mục lộ tên ràng buộc DB — xử lý lỗi tập trung (spec 001) | `cd8c24b` |
-| Chưa có validation theo lược đồ cho phần lớn API (chỉ đăng ký/đặt lại mật khẩu kiểm tra tay) — spec 003 (Zod) | (commit spec 003) |
-| `handleDatabaseError` trong bookController trả nguyên văn lỗi DB lạ (sót từ spec 001) | (commit spec 003) |
+| `/mock-gateway` bật trên production, chèn `orderId`/`amount` vào HTML không escape (XSS phản chiếu) — bước 7 | (commit bước 7) |
+| `/api/payments/webhook` gọi `PaymentService.processWebhook` không tồn tại → luôn 500 — bước 7 | (commit bước 7) |
+| Upload ảnh tin `mimetype` do client gửi và giữ đuôi file gốc (có thể lưu `.html` dưới dạng ảnh) — bước 7 | (commit bước 7) |
+| Chưa có validation theo lược đồ cho phần lớn API (chỉ đăng ký/đặt lại mật khẩu kiểm tra tay) — spec 003 (Zod) | `d02cbea` |
+| `handleDatabaseError` trong bookController trả nguyên văn lỗi DB lạ (sót từ spec 001) | `d02cbea` |
 | Đặt lại mật khẩu không thu hồi token cũ (không đổi `session_id`) — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |
 | Quên mật khẩu báo "Email này không tồn tại" → dò được email đã đăng ký — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |
 | Token đặt lại mật khẩu lưu nguyên văn trong DB (nên lưu băm) — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |

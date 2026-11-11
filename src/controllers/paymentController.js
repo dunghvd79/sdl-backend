@@ -98,50 +98,6 @@ class PaymentController {
             return next(err);
         }
     }
-
-    // POST /api/payments/webhook
-    static async webhook(req, res, next) {
-        try {
-            const webhookData = req.body;
-            const result = await PaymentService.processWebhook(webhookData);
-            res.status(200).json(result);
-        } catch (err) {
-            next(err);
-        }
-    }
-
-    // GET /mock-gateway
-    static async renderMockGateway(req, res, next) {
-        const { orderId, amount, paymentId } = req.query;
-        res.send(`
-            <!DOCTYPE html>
-            <html lang="vi">
-            <head>
-                <meta charset="UTF-8">
-                <title>SDL Mock Payment Gateway</title>
-                <style>
-                    body { font-family: sans-serif; text-align: center; padding-top: 100px; }
-                    .card { display: inline-block; border: 1px solid #ccc; padding: 40px; border-radius: 12px; }
-                    .btn { padding: 10px 20px; font-weight: bold; cursor: pointer; border: none; border-radius: 6px; }
-                    .btn-success { background: #10b981; color: white; margin-bottom: 10px; }
-                </style>
-            </head>
-            <body>
-                <div class="card">
-                    <h2>MOCK GATEWAY</h2>
-                    <p>Đơn hàng #${orderId}</p>
-                    <p>Số tiền: ${Number(amount).toLocaleString('vi-VN')} đ</p>
-                    <button class="btn btn-success" onclick="processMock()">Xác nhận thanh toán giả lập</button>
-                </div>
-                <script>
-                    function processMock() {
-                        window.location.href = '${FRONTEND_URL}/payment-result?status=success';
-                    }
-                </script>
-            </body>
-            </html>
-        `);
-    }
 }
 
 module.exports = PaymentController;
