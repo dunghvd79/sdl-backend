@@ -1,6 +1,8 @@
+const pool = require('../config/database');
 const Payment = require('../models/Payment');
 const Order = require('../models/Order');
 const Cart = require('../models/Cart');
+const Inventory = require('../models/Inventory');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -30,6 +32,67 @@ function sortObject(obj) {
         sorted[str[key]] = encodeURIComponent(obj[str[key]]).replace(/%20/g, "+");
     }
     return sorted;
+}
+
+// Ghi nhận một đơn đã được cổng thanh toán báo PAID. Idempotent: return URL và webhook có thể
+// cùng gọi, gọi lặp lại hoặc đồng thời, nhưng kho chỉ bị trừ đúng một lần.
+// Chỉ chuyển PENDING -> CONFIRMED; câu UPDATE có điều kiện khoá dòng đơn hàng nên yêu cầu
+// đến sau sẽ thấy đơn đã CONFIRMED và không làm gì thêm.
+async function confirmPaidOrder(orderId, paymentId, transactionId, stockOutReason) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const { rows: [order] } = await client.query(
+            `UPDATE orders SET status = 'CONFIRMED', updated_at = CURRENT_TIMESTAMP
+             WHERE id = $1 AND status = 'PENDING'
+             RETURNING id, user_id`,
+            [orderId]
+        );
+
+        if (!order) {
+            const { rows: [current] } = await client.query('SELECT status FROM orders WHERE id = $1', [orderId]);
+            if (current && current.status === 'CANCELLED') {
+                // Tiền đã về nhưng đơn đã huỷ (vd quá hạn 15 phút): không làm sống lại đơn,
+                // ghi nhận để quản trị viên hoàn tiền.
+                await client.query(
+                    "UPDATE payments SET transaction_id = $2, status = 'REFUND_PENDING' WHERE id = $1",
+                    [paymentId, transactionId]
+                );
+                await client.query('COMMIT');
+                return { success: false, message: 'Đơn hàng đã bị hủy trước khi thanh toán hoàn tất. Giao dịch sẽ được hoàn tiền.' };
+            }
+            // Đơn đã được xác nhận trước đó: không xử lý lại.
+            await client.query('COMMIT');
+            return { success: true, orderId, alreadyProcessed: true };
+        }
+
+        await client.query(
+            "UPDATE payments SET transaction_id = $2, status = 'SUCCESS' WHERE id = $1",
+            [paymentId, transactionId]
+        );
+
+        const { rows: items } = await client.query(
+            'SELECT book_id, quantity FROM order_items WHERE order_id = $1',
+            [orderId]
+        );
+        for (const item of items) {
+            await Inventory.commit(client, item.book_id, item.quantity, stockOutReason, order.user_id);
+        }
+
+        const cart = await Cart.getByUserId(order.user_id);
+        if (cart && items.length > 0) {
+            await Cart.removeItems(cart.id, items.map(item => item.book_id), client);
+        }
+
+        await client.query('COMMIT');
+        return { success: true, orderId };
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
 }
 
 // Hàm khởi tạo PayOS trễ (lazy initialization) để tránh lỗi crash khi .env chưa được cấu hình
@@ -109,27 +172,7 @@ class PaymentService {
 
         // Nếu trạng thái là PAID (Đã thanh toán thành công)
         if (paymentLinkInfo.status === 'PAID') {
-            await Payment.updateStatus(payment.id, paymentLinkId, 'SUCCESS');
-            await Order.updateStatus(orderId, 'CONFIRMED');
-
-            // Tìm giỏ hàng của user và dọn sạch
-            const order = await Order.findById(orderId);
-            if (order && order.user_id) {
-                const cart = await Cart.getByUserId(order.user_id);
-                if (cart && order.items && order.items.length > 0) {
-                    await Cart.removeItems(cart.id, order.items.map(item => item.bookId));
-                }
-            }
-
-            // Trừ giữ chỗ và ghi nhận xuất kho thực tế khi thanh toán thành công
-            if (order && order.items && order.items.length > 0) {
-                const Inventory = require('../models/Inventory');
-                for (const item of order.items) {
-                    await Inventory.commit(null, item.bookId, item.quantity, `Xuất kho bán hàng (PayOS Đơn hàng #${orderId})`, order.user_id);
-                }
-            }
-
-            return { success: true, orderId };
+            return confirmPaidOrder(orderId, payment.id, paymentLinkId, `Xuất kho bán hàng (PayOS Đơn hàng #${orderId})`);
         } else if (paymentLinkInfo.status === 'CANCELLED') {
             await Payment.updateStatus(payment.id, paymentLinkId, 'FAILED');
             return { success: false, message: 'Giao dịch đã bị hủy bởi người dùng' };
@@ -158,27 +201,11 @@ class PaymentService {
 
         // Webhook gửi thông tin thành công qua trường code = "00"
         if (webhookBody.success || webhookBody.code === '00') {
-            await Payment.updateStatus(payment.id, verifiedData.paymentLinkId, 'SUCCESS');
-            await Order.updateStatus(orderId, 'CONFIRMED');
-
-            // Tìm giỏ hàng và dọn sạch
-            const order = await Order.findById(orderId);
-            if (order && order.user_id) {
-                const cart = await Cart.getByUserId(order.user_id);
-                if (cart && order.items && order.items.length > 0) {
-                    await Cart.removeItems(cart.id, order.items.map(item => item.bookId));
-                }
-            }
-
-            // Trừ giữ chỗ và ghi nhận xuất kho thực tế
-            if (order && order.items && order.items.length > 0) {
-                const Inventory = require('../models/Inventory');
-                for (const item of order.items) {
-                    await Inventory.commit(null, item.bookId, item.quantity, `Xuất kho bán hàng (PayOS Webhook Đơn hàng #${orderId})`, order.user_id);
-                }
-            }
-
-            return { success: true, message: 'Thanh toán qua Webhook thành công' };
+            const result = await confirmPaidOrder(orderId, payment.id, verifiedData.paymentLinkId, `Xuất kho bán hàng (PayOS Webhook Đơn hàng #${orderId})`);
+            return {
+                success: result.success,
+                message: result.success ? 'Thanh toán qua Webhook thành công' : result.message
+            };
         } else {
             await Payment.updateStatus(payment.id, verifiedData.paymentLinkId, 'FAILED');
             return { success: false, message: 'Thanh toán qua Webhook thất bại hoặc bị hủy' };
