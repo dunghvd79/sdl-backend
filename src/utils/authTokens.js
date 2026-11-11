@@ -63,7 +63,11 @@ function readRefreshCookie(req) {
         const index = part.indexOf('=');
         if (index === -1) continue;
         if (part.slice(0, index).trim() === REFRESH_COOKIE_NAME) {
-            return decodeURIComponent(part.slice(index + 1).trim()) || null;
+            try {
+                return decodeURIComponent(part.slice(index + 1).trim()) || null;
+            } catch {
+                return null; // cookie sai định dạng (vd "%E0") → coi như không có phiên
+            }
         }
     }
     return null;

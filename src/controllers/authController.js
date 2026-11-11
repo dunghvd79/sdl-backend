@@ -74,6 +74,12 @@ class AuthController {
 
             const result = await AuthService.login({ email, password }, sessionMeta(req));
 
+            // Trình duyệt đang giữ phiên cũ (đăng nhập lại): huỷ phiên đó để không bị bỏ mồ côi 7 ngày
+            const previousRefresh = readRefreshCookie(req);
+            if (previousRefresh) {
+                await AuthService.logout(previousRefresh);
+            }
+
             setRefreshCookie(res, result.refreshToken);
             res.status(200).json({
                 message: 'Đăng nhập thành công!',

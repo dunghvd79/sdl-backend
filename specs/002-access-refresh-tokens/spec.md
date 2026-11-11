@@ -127,6 +127,11 @@ web lạ không thể kích hoạt gia hạn hay đăng xuất thay cho người
 - Thẻ truy cập của phiên bản cũ (24 giờ) sau khi triển khai: không còn được chấp nhận; khách đăng nhập
   lại một lần.
 - Giao diện phiên bản cũ đang mở khi máy chủ đã cập nhật: vẫn đăng nhập được và dùng trong thời hạn thẻ.
+- Phản hồi gia hạn bị mất trên đường truyền (mạng di động rớt): trình duyệt vẫn giữ phiên cũ; nếu lần
+  gia hạn kế tiếp xảy ra sau 30 giây, hệ thống coi là phiên bị dùng lại và buộc đăng nhập lại (đã biết,
+  chấp nhận — backlog B33).
+- Thu hồi phiên (đăng xuất mọi nơi, đổi/đặt lại mật khẩu) xảy ra đúng lúc một thiết bị đang gia hạn:
+  không phiên nào được sống sót (phát hiện khi code review, đã có test).
 
 ## Requirements *(mandatory)*
 

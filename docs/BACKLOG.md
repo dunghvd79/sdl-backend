@@ -10,12 +10,6 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 
 | # | Mức | Việc | Bước |
 |---|---|---|---|
-| B1 | 🔴 | Đặt lại mật khẩu không thu hồi token cũ (không đổi `session_id`) | 5 (auth mới) |
-| B2 | 🔴 | Quên mật khẩu báo "Email này không tồn tại" → dò được email đã đăng ký | 5 |
-| B3 | 🟠 | Token đặt lại mật khẩu lưu nguyên văn trong DB (nên lưu băm) | 5 |
-| B4 | 🟠 | Chính sách mật khẩu yếu (6 ký tự, chữ + số) | 5 |
-| B5 | 🟠 | CORS mở cho mọi origin (`cors()`); auth bằng cookie bắt buộc phải giới hạn origin + `credentials` | 5 |
-| B6 | 🟡 | Với access token không tra DB: khoá tài khoản / đổi role có hiệu lực chậm tối đa bằng tuổi thọ access token — **đã quyết định 11/11/2026: chấp nhận trễ** | 5 |
 | B7 | 🟠 | Chưa có validation theo lược đồ cho phần lớn API (chỉ đăng ký/đặt lại mật khẩu kiểm tra tay) | 6 (Zod) |
 | B8 | 🟠 | `/mock-gateway` bật trên production, chèn `orderId`/`amount` vào HTML không escape (XSS phản chiếu) | 7 |
 | B9 | 🟡 | `/api/payments/webhook` gọi `PaymentService.processWebhook` không tồn tại → luôn 500 | 7 |
@@ -41,6 +35,13 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | B24 | ⚪ | Các file `report_*.md` (báo cáo đồ án) còn URL AI Service cũ | |
 | B26 | 🟡 | `src/services/aiService.js` `require('form-data')` nhưng `package.json` không khai báo; đang chạy được nhờ `axios` cài kèm | Thêm vào dependencies khi sửa AI Service |
 | B27 | ⚪ | Lỗi multer khác `LIMIT_FILE_SIZE` (vd sai tên field) giờ trả câu chung "File tải lên không hợp lệ." thay vì thông báo tiếng Anh của thư viện | Đổi ở spec 001; tách thông báo riêng nếu cần |
+| B29 | ⚪ | Cột `users.session_id` không còn dùng sau spec 002 (vẫn còn migration tạo cột trong `database.js` và `User.findById` vẫn đọc) | Xoá cột + migration khi dọn dẹp |
+| B30 | ⚪ | CORS chưa cho phép bản preview của Cloudflare Pages (`*.pigeon-bookstore.pages.dev`) | Thêm qua `CORS_ORIGINS` hoặc regex nếu cần test bản preview |
+| B31 | 🟡 | Quên mật khẩu vẫn có thể lộ email qua **thời gian phản hồi** (email có thật phải chờ cập nhật DB + đẩy vào Redis) | Code review spec 002 (Minor 2); sửa bằng gửi mail không chờ hoặc độ trễ cố định. Lợi ích hạn chế vì trang đăng ký vẫn báo "Email này đã được đăng ký!" |
+| B32 | 🟡 | Đăng ký báo "Email này đã được đăng ký!" và đăng nhập báo "tài khoản bị khoá" trước khi kiểm tra mật khẩu → dò được email/trạng thái khoá | Có từ trước spec 002 |
+| B33 | ⚪ | Mất phản hồi của `/auth/refresh` (mạng di động rớt) → trình duyệt giữ cookie cũ → lần gia hạn sau 30 giây bị coi là dùng lại và đăng xuất | Hệ quả đã biết của thiết kế R4 (spec 002); chấp nhận |
+| B34 | ⚪ | Migration chạy bất đồng bộ sau khi server đã `listen`: vài giây đầu sau lần deploy có bảng mới, request dùng bảng đó có thể lỗi 500 | Có từ trước; cân nhắc chạy migration trước khi `listen` |
+| B35 | ⚪ | `/auth/refresh` và `/auth/reset-password` chỉ có rate limit chung 300/15 phút | Cân nhắc limiter riêng |
 | B28 | 🟡 | Mọi cột thời gian dùng `TIMESTAMP` **không múi giờ**; `pg` đọc theo múi giờ của Node. Postgres local/Neon chạy UTC, máy dev chạy +7 → so sánh thời gian bằng `Date` của Node lệch 7 giờ (đã gặp ở refresh token, sửa bằng so sánh trong SQL). Production hiện đúng vì Render cũng UTC | Rà các chỗ so sánh thời gian ở Node; cân nhắc chuyển sang `TIMESTAMPTZ` |
 | B25 | ⚪ | Script kiểm thử chạy tay cũ `src/utils/test_*.js`, `scratch/test_*.js` không thuộc bộ test Jest | Xoá hoặc chuyển thành test Jest |
 
@@ -53,3 +54,9 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | 1 critical + 6 high trong `npm audit --omit=dev`; gỡ `nodemailer` không dùng | `2082e23` |
 | Script `scratch/` ghi cứng chuỗi kết nối DB/Redis | `46923f7` |
 | 72 chỗ trả `err.message` lộ lỗi nội bộ; lỗi trùng danh mục lộ tên ràng buộc DB — xử lý lỗi tập trung (spec 001) | `cd8c24b` |
+| Đặt lại mật khẩu không thu hồi token cũ (không đổi `session_id`) — spec 002 | (commit spec 002) |
+| Quên mật khẩu báo "Email này không tồn tại" → dò được email đã đăng ký — spec 002 | (commit spec 002) |
+| Token đặt lại mật khẩu lưu nguyên văn trong DB (nên lưu băm) — spec 002 | (commit spec 002) |
+| Chính sách mật khẩu yếu (6 ký tự, chữ + số) — spec 002 | (commit spec 002) |
+| CORS mở cho mọi origin (`cors()`); auth bằng cookie bắt buộc phải giới hạn origin + `credentials` — spec 002 | (commit spec 002) |
+| Với access token không tra DB: khoá tài khoản / đổi role có hiệu lực chậm tối đa bằng tuổi thọ access token — **đã quyết định 11/11/2026: chấp nhận trễ** — spec 002 | (commit spec 002) |

@@ -85,11 +85,13 @@ class UserController {
             const saltRounds = 10;
             const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
-            const updateQuery = 'UPDATE users SET password_hash = $1 WHERE id = $2';
-            await pool.query(updateQuery, [newPasswordHash, req.user.id]);
+            // 4. Đổi mật khẩu + huỷ mọi phiên trong cùng một giao dịch (spec 002 FR-009)
+            await RefreshToken.withUserLock(req.user.id, async (client) => {
+                await client.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newPasswordHash, req.user.id]);
+                await RefreshToken.revokeAllForUser(req.user.id, 'password', client);
+            });
 
-            // 4. Huỷ mọi phiên (spec 002 FR-009), cấp phiên mới cho thiết bị đang đổi mật khẩu
-            await RefreshToken.revokeAllForUser(req.user.id, 'password');
+            // 5. Cấp phiên mới cho thiết bị đang đổi mật khẩu
             const userAgent = req.headers['user-agent'] ? String(req.headers['user-agent']).slice(0, 300) : null;
             const { accessToken, refreshToken } = await AuthService.issueSession(req.user, { userAgent });
             setRefreshCookie(res, refreshToken);

@@ -3,7 +3,34 @@ const crypto = require('crypto');
 const pool = require('../config/database');
 const { REFRESH_TOKEN_TTL_MS } = require('../utils/authTokens');
 
+// Không gian khoá advisory cho thao tác phiên của một user (tránh trùng khoá advisory khác nếu có)
+const SESSION_LOCK_NAMESPACE = 2002;
+
 class RefreshToken {
+    // Tuần tự hoá mọi thao tác ghi vào phiên của CÙNG một user (xoay vòng, thu hồi, đổi mật khẩu).
+    // Không có khoá này, `revokeAllForUser` chạy song song với `rotate` sẽ bỏ sót token mới vừa được
+    // chèn (READ COMMITTED: snapshot của câu UPDATE không thấy dòng commit sau khi nó bắt đầu).
+    static async lockUser(client, userId) {
+        await client.query('SELECT pg_advisory_xact_lock($1, $2)', [SESSION_LOCK_NAMESPACE, userId]);
+    }
+
+    // Chạy `work(client)` trong một transaction đã giữ khoá phiên của user
+    static async withUserLock(userId, work) {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await RefreshToken.lockUser(client, userId);
+            const result = await work(client);
+            await client.query('COMMIT');
+            return result;
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    }
+
     // Tạo phiên mới (family mới khi familyId không truyền vào)
     static async create(executor, { userId, tokenHash, familyId = crypto.randomUUID(), userAgent = null }) {
         const db = executor || pool;
@@ -32,27 +59,15 @@ class RefreshToken {
     // Xoay vòng trong một transaction: chỉ thành công nếu token cũ còn hiệu lực ở thời điểm khoá dòng.
     // Trả bản ghi mới, hoặc null nếu token cũ đã bị xoay/huỷ bởi yêu cầu khác.
     static async rotate(oldId, { userId, familyId, newTokenHash, userAgent = null }) {
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
+        return RefreshToken.withUserLock(userId, async (client) => {
             const { rowCount } = await client.query(
                 `UPDATE refresh_tokens SET revoked_at = NOW(), revoked_reason = 'rotated'
                  WHERE id = $1 AND revoked_at IS NULL`,
                 [oldId]
             );
-            if (rowCount === 0) {
-                await client.query('ROLLBACK');
-                return null;
-            }
-            const created = await RefreshToken.create(client, { userId, tokenHash: newTokenHash, familyId, userAgent });
-            await client.query('COMMIT');
-            return created;
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
-        }
+            if (rowCount === 0) return null;
+            return RefreshToken.create(client, { userId, tokenHash: newTokenHash, familyId, userAgent });
+        });
     }
 
     // Chuỗi phiên còn ít nhất một token chưa bị huỷ và chưa hết hạn?
@@ -66,19 +81,24 @@ class RefreshToken {
     }
 
     static async revokeFamily(familyId, reason) {
-        await pool.query(
+        const { rows } = await pool.query('SELECT user_id FROM refresh_tokens WHERE family_id = $1 LIMIT 1', [familyId]);
+        if (rows.length === 0) return;
+        await RefreshToken.withUserLock(rows[0].user_id, (client) => client.query(
             `UPDATE refresh_tokens SET revoked_at = NOW(), revoked_reason = $2
              WHERE family_id = $1 AND revoked_at IS NULL`,
             [familyId, reason]
-        );
+        ));
     }
 
-    static async revokeAllForUser(userId, reason) {
-        await pool.query(
-            `UPDATE refresh_tokens SET revoked_at = NOW(), revoked_reason = $2
-             WHERE user_id = $1 AND revoked_at IS NULL`,
-            [userId, reason]
-        );
+    // `executor`: client của transaction bên gọi, đã giữ khoá phiên của user (vd đổi mật khẩu)
+    static async revokeAllForUser(userId, reason, executor = null) {
+        const sql = `UPDATE refresh_tokens SET revoked_at = NOW(), revoked_reason = $2
+                     WHERE user_id = $1 AND revoked_at IS NULL`;
+        if (executor) {
+            await executor.query(sql, [userId, reason]);
+            return;
+        }
+        await RefreshToken.withUserLock(userId, (client) => client.query(sql, [userId, reason]));
     }
 
     // Xoá bản ghi đã hết hạn quá 1 ngày (chạy định kỳ trong server.js)

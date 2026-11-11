@@ -93,7 +93,8 @@ class User {
     }
 
     // Cập nhật mật khẩu mới và xóa bỏ token/hạn sử dụng
-    static async updatePasswordAndClearToken(userId, plainPassword) {
+    // `executor`: client của transaction bên gọi (spec 002: đổi mật khẩu + thu hồi phiên cùng giao dịch)
+    static async updatePasswordAndClearToken(userId, plainPassword, executor = pool) {
         // Băm mật khẩu mới
         const hashedPassword = await bcrypt.hash(plainPassword, 10);
         const query = `
@@ -102,7 +103,7 @@ class User {
             WHERE id = $2
             RETURNING id, email, full_name, role
         `;
-        const result = await pool.query(query, [hashedPassword, userId]);
+        const result = await executor.query(query, [hashedPassword, userId]);
         return result.rows[0];
     }
 }

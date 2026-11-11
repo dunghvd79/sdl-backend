@@ -6,7 +6,6 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const RefreshToken = require('../models/RefreshToken');
 const { signAccessToken, generateRefreshToken, hashToken } = require('../utils/authTokens');
-const EmailService = require('./emailService');
 const { queueResetPasswordEmail } = require('../queues/emailQueue');
 const AppError = require('../utils/AppError');
 
@@ -88,12 +87,12 @@ class AuthService {
             newTokenHash: hashToken(newRefreshToken),
             userAgent: meta.userAgent || null
         });
-        // Một yêu cầu khác vừa xoay token này trước: coi như yêu cầu đồng thời
-        return {
-            user: publicUser(user),
-            accessToken: signAccessToken(user),
-            refreshToken: rotated ? newRefreshToken : null
-        };
+        if (!rotated) {
+            // Token đã bị xoay hoặc thu hồi bởi yêu cầu khác sau khi đọc: đánh giá lại từ đầu
+            // (token giờ đã có revoked_at nên lượt sau đi vào nhánh ân hạn / từ chối, không lặp vô hạn)
+            return this.refresh(rawToken, meta);
+        }
+        return { user: publicUser(user), accessToken: signAccessToken(user), refreshToken: newRefreshToken };
     }
 
     // Đăng xuất thiết bị hiện tại: huỷ cả chuỗi phiên của cookie
@@ -165,11 +164,13 @@ class AuthService {
             throw new AppError('Liên kết khôi phục mật khẩu không hợp lệ hoặc đã hết hạn!', 400);
         }
 
-        // 2. Cập nhật mật khẩu mới và xóa token
-        const updatedUser = await User.updatePasswordAndClearToken(user.id, newPassword);
-
-        // 3. Huỷ mọi phiên đang có (người đã chiếm phiên không dùng tiếp được)
-        await RefreshToken.revokeAllForUser(user.id, 'password');
+        // 2+3. Cập nhật mật khẩu, xoá mã và huỷ mọi phiên trong CÙNG một giao dịch (có khoá phiên của user):
+        // lỗi giữa chừng thì không gì thay đổi và mã đặt lại vẫn dùng lại được.
+        const updatedUser = await RefreshToken.withUserLock(user.id, async (client) => {
+            const updated = await User.updatePasswordAndClearToken(user.id, newPassword, client);
+            await RefreshToken.revokeAllForUser(user.id, 'password', client);
+            return updated;
+        });
 
         return { email: updatedUser.email };
     }
