@@ -8,12 +8,32 @@ Tài liệu này hướng dẫn cách phân tách và vận hành hệ thống c
 
 Dự án SDL áp dụng nguyên tắc **Cô lập Môi trường (Environment Isolation)** tuyệt đối:
 
-| Thành phần | Local Development | Production (Render) |
+| Thành phần | Local Development | Production |
 | :--- | :--- | :--- |
-| **Dịch vụ Hosting** | Chạy trong Docker container (`postgres:15-alpine`) | Managed PostgreSQL trên Render (Singapore Cloud) |
-| **Cổng kết nối** | `localhost:5432` | `dpg-d8v159cm0tmc738p8bsg-a.singapore-postgres.render.com:5432` |
-| **Cấu hình** | Đọc từ file `.env` cục bộ | Đọc từ cài đặt **Environment Variables** trên Render |
+| **PostgreSQL** | Docker container `sdl_postgres` (`postgres:15-alpine`) | **Neon** Serverless Postgres (AWS `ap-southeast-1`, Singapore, gói Free) |
+| **Host DB** | `localhost:5432` | `ep-delicate-cherry-azmrwkck.c-3.ap-southeast-1.aws.neon.tech:5432` (database `neondb`, user `neondb_owner`) |
+| **Redis** | `redis://localhost:6379` | **Upstash** Redis `apparent-spaniel-129440.upstash.io:6379` (bắt buộc TLS) |
+| **Cấu hình** | Đọc từ file `.env` cục bộ | Đọc từ **Environment Variables** của service `sdl-backend` trên Render |
 | **Dữ liệu (Data)** | Dữ liệu giả định (Mock Data) phục vụ viết code và test | Dữ liệu thật của khách hàng (Tài khoản thật, đơn hàng thật, tiền thật) |
+
+> Mật khẩu DB và Redis chỉ lưu trên Render và dashboard Neon/Upstash. **Không ghi mật khẩu vào file này hay bất kỳ file nào được commit.**
+
+### Biến môi trường Production trên Render
+
+| Key | Giá trị |
+| :--- | :--- |
+| `NODE_ENV` | `production` — **bắt buộc**, vì `src/config/database.js` chỉ bật SSL khi ở production và Neon từ chối kết nối không SSL |
+| `DB_HOST` | Host Neon ở bảng trên |
+| `DB_PORT` | `5432` |
+| `DB_USER` | `neondb_owner` |
+| `DB_PASSWORD` | Lấy ở Neon Console → Roles |
+| `DB_NAME` | `neondb` |
+| `REDIS_URL` | `rediss://default:<password>@apparent-spaniel-129440.upstash.io:6379` |
+
+Lưu ý khi điền `REDIS_URL`:
+- Phải là **`rediss://`** (hai chữ s). Với `redis://`, log sẽ lặp lại `✅ Redis: Đã kết nối thành công` rồi `Socket closed unexpectedly`, vì Upstash đóng kết nối không TLS.
+- Chỉ dán URL: không có dấu nháy, không có tiền tố `redis-cli --tls -u` hay `REDIS_URL=`. Giá trị sai định dạng làm `createClient` ném `Invalid URL` khi khởi động, và deploy thất bại với *Exited with status 1*.
+- Lấy URL ở tab **TCP** trong Upstash (dùng nút copy để có mật khẩu thật), không dùng tab **REST** (`https://...`).
 
 ---
 
@@ -58,18 +78,46 @@ Do database local chạy bằng Docker Compose, bạn cần thực thi câu lệ
     cat database/local_backup.sql | docker exec -i sdl_postgres_db psql -U sdl_user -d sdl_db
     ```
 
-### B. Môi trường Production (Render Cloud)
+### B. Môi trường Production (Neon)
 
-Bạn có thể đứng ở máy local để sao lưu dữ liệu từ xa (Remote Backup) bằng chuỗi kết nối Production:
+Máy local không cài `psql`/`pg_dump`, nên chạy qua image Docker `postgres:15-alpine`. Lấy chuỗi kết nối ở Neon Console → **Connect**, tắt *Connection pooling*, rồi đặt vào biến môi trường của phiên shell. Không ghi chuỗi này vào file.
 
-*   **Sao lưu Database Production về máy:**
-    ```powershell
-    pg_dump "postgresql://sdl_database_new_user:XvBZdbja7OJ9F4TlTJoNNbVX9DqiebFD@dpg-d8v159cm0tmc738p8bsg-a.singapore-postgres.render.com/sdl_database_new" -f database/production_backup.sql
+*   **Sao lưu Database Production về máy (Git Bash):**
+    ```bash
+    export NEON_URL='postgresql://neondb_owner:<password>@ep-delicate-cherry-azmrwkck.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
+    MSYS_NO_PATHCONV=1 docker run --rm -e NEON_URL postgres:15-alpine \
+      sh -c 'pg_dump "$NEON_URL" --no-owner --no-privileges' > database/production_backup.sql
     ```
+    File `production_backup.sql` chứa dữ liệu thật của khách hàng, **không commit**.
+*   Neon gói Free có sẵn khôi phục theo thời điểm (*point-in-time restore*) trong một khoảng ngắn; xem ở Neon Console → **Backup & Restore**.
 *   **CẢNH BÁO:** Tuyệt đối **KHÔNG** chạy lệnh phục hồi (Restore) đè từ Local lên Production trừ trường hợp khẩn cấp có sự đồng ý của quản trị viên hệ thống để tránh ghi đè làm mất dữ liệu giao dịch thật của khách hàng.
 
 ---
 
-## 4. Nguyên tắc Vận hành An toàn
+## 4. Khôi phục khi DB Production chết (sự cố 11/11/2026)
+
+**Triệu chứng:** `/api/health` vẫn trả 200, nhưng mọi API có truy vấn DB trả 500 `{"error":"Connection terminated unexpectedly"}`.
+
+**Nguyên nhân lần trước:** Production chạy trên PostgreSQL gói Free của Render. Gói này hết hạn 30 ngày sau khi tạo và không có backup, nên toàn bộ dữ liệu thật trên đó bị mất. Redis gói Free trên Upstash cũng bị xoá do lâu không dùng (log báo `getaddrinfo ENOTFOUND civil-skylark-152666.upstash.io`).
+
+**Cách đã khôi phục:**
+1. Dump DB local: `docker exec sdl_postgres pg_dump -U sdl_user -d sdl_db --no-owner --no-privileges --clean --if-exists > sdl_restore.sql`
+2. Tạo project Neon ở region Singapore, nạp dump vào:
+   ```bash
+   MSYS_NO_PATHCONV=1 docker run --rm -i -e NEON_URL postgres:15-alpine \
+     sh -c 'psql "$NEON_URL" -v ON_ERROR_STOP=1 --single-transaction -q' < sdl_restore.sql
+   ```
+3. Đối chiếu số dòng từng bảng giữa local và Neon.
+4. Tạo Redis mới trên Upstash, rồi cập nhật các biến ở mục 1 trên Render và bấm **Save, rebuild and deploy**.
+
+**Dữ liệu sau khôi phục:** lấy từ DB local tại thời điểm 11/11/2026, gồm 12 sách, 11 danh mục, 4 user, 21 đơn hàng, 3 bài viết, 3 coupon. Mật khẩu các tài khoản là mật khẩu trong DB local, **không phải** `password123`.
+
+**Đọc log Render khi deploy:** mã trong ngoặc vuông (ví dụ `[4vd87]`) là ID instance. Trong lúc deploy, log của instance cũ và mới lẫn vào nhau; instance cũ chỉ bị tắt khi instance mới chạy được. Nếu Events báo *Deploy failed*, web vẫn chạy bằng instance cũ với env cũ.
+
+**Phòng ngừa:** Neon gói Free không hết hạn theo thời gian, nhưng Upstash có thể xoá Redis bị bỏ không quá lâu. Định kỳ sao lưu DB production theo mục 3B.
+
+---
+
+## 5. Nguyên tắc Vận hành An toàn
 1.  **Không dùng chung Redis:** Đảm bảo `REDIS_URL` ở local trỏ về `redis://localhost:6379`, không bao giờ trỏ lên Upstash Redis của Production để tránh xung đột hàng đợi gửi mail.
 2.  **Bảo mật file `.env`:** Tuyệt đối không xóa `.env` khỏi file `.gitignore`. Không đẩy mật khẩu production lên các kho chứa git công khai.
