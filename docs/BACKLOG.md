@@ -15,6 +15,7 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 
 | # | Mức | Việc | Ghi chú |
 |---|---|---|---|
+| B38 | 🔴 | Tài khoản test trên **production** (`admin@test.vn` quyền ADMIN, `curator@test.vn`, `customer@test.vn`) dùng mật khẩu được ghi cứng trong repo (`scratch/seed_production_users.js`, `src/utils/seed_test_users.js`); admin chính dùng mật khẩu 6 ký tự phổ biến | Phát hiện 12/11/2026. Đổi mật khẩu / khoá tài khoản test trên production; bỏ mật khẩu cố định khỏi script seed (đọc từ biến môi trường) |
 | B11 | 🔴 | Mật khẩu DB Render cũ và Upstash cũ còn trong lịch sử git `sdl-backend` | Dịch vụ đã bị xoá nên vô hại; nếu repo public thì cân nhắc viết lại lịch sử |
 | B12 | 🔴 | Đổi mật khẩu Neon (đã bị gửi trong phiên chat 11/11/2026), cập nhật `DB_PASSWORD` trên Render | Việc của chủ dự án |
 | B13 | 🟠 | Tiền về sau khi đơn đã huỷ: đơn giữ CANCELLED, payment `REFUND_PENDING`, nhưng **chưa có màn hình/quy trình hoàn tiền** cho admin | Cần quyết định nghiệp vụ: hoàn tiền hay vẫn giao hàng |
@@ -23,7 +24,7 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | B16 | 🟡 | Migration chạy lại toàn bộ mỗi lần khởi động trong `src/config/database.js` (~400 dòng); nên có hệ migration có thứ tự | |
 | B17 | 🟡 | Migration `setval(..., 0)` cho `users_id_seq` / `articles_id_seq` báo lỗi khi bảng rỗng (DB mới tinh) | |
 | B18 | 🟡 | Rate limit dùng bộ nhớ trong tiến trình: reset khi restart, không chia sẻ nếu chạy nhiều instance | Có thể dùng Redis store khi cần scale |
-| B19 | 🟡 | Safari/iPhone chặn cookie khác domain → khách phải đăng nhập lại khi access token hết hạn | Gắn tên miền chung cho frontend và API |
+| B19 | 🟠 | Cookie phiên `sdl_rt` là cookie bên thứ ba (pages.dev ↔ onrender.com): bị chặn trên Safari/iPhone, cửa sổ ẩn danh Chrome và Chrome có bật "chặn cookie bên thứ ba" (đã xác nhận 12/11/2026 trên máy chủ dự án: "blocked due to user preferences") → khách bị đăng xuất sau 15 phút | Cách sửa: tên miền chung (vd `pigeon.vn` + `api.pigeon.vn`) hoặc proxy `/api` qua Cloudflare Pages Functions (cần đọc IP thật cho rate limit) |
 | B20 | 🟡 | AI Service đã chết (Render và Railway đều bị xoá); `/api/ai/*` lỗi trên production | Chủ dự án chọn bỏ qua RAG lúc này |
 | B21 | 🟡 | 20 lỗ hổng low/moderate trong `jest` (chỉ dev) | Chờ jest bản vá; không chạy trên production |
 | B22 | ⚪ | Cache Redis chỉ áp dụng cho sách (`books:*`) | |
