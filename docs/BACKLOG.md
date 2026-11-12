@@ -16,6 +16,7 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | # | Mức | Việc | Ghi chú |
 |---|---|---|---|
 | B38 | 🔴 | Tài khoản test trên **production** (`admin@test.vn` quyền ADMIN, `curator@test.vn`, `customer@test.vn`) dùng mật khẩu được ghi cứng trong repo (`scratch/seed_production_users.js`, `src/utils/seed_test_users.js`); admin chính dùng mật khẩu 6 ký tự phổ biến | Phát hiện 12/11/2026. Đổi mật khẩu / khoá tài khoản test trên production; bỏ mật khẩu cố định khỏi script seed (đọc từ biến môi trường) |
+| B39 | 🟡 | Giao diện hỏi `/notifications` mỗi 15 giây (`Navbar.jsx`, `NotificationsPage.jsx`) kể cả khi tab ẩn: 60 request/15 phút/tab, trong khi rate limit chung 300/15 phút/IP → nhiều tab hoặc nhiều người chung IP (NAT) có thể bị 429 | Dừng hỏi khi tab ẩn (`refetchIntervalInBackground: false` là mặc định — kiểm tra), giãn chu kỳ, hoặc tách rate limit cho API đọc |
 | B11 | 🔴 | Mật khẩu DB Render cũ và Upstash cũ còn trong lịch sử git `sdl-backend` | Dịch vụ đã bị xoá nên vô hại; nếu repo public thì cân nhắc viết lại lịch sử |
 | B12 | 🔴 | Đổi mật khẩu Neon (đã bị gửi trong phiên chat 11/11/2026), cập nhật `DB_PASSWORD` trên Render | Việc của chủ dự án |
 | B13 | 🟠 | Tiền về sau khi đơn đã huỷ: đơn giữ CANCELLED, payment `REFUND_PENDING`, nhưng **chưa có màn hình/quy trình hoàn tiền** cho admin | Cần quyết định nghiệp vụ: hoàn tiền hay vẫn giao hàng |
