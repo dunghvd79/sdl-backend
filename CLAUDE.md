@@ -19,7 +19,7 @@ npx jest tests/auth.login.test.js   # chạy một file test
 - `tests/setup/globalSetup.js` xoá và tạo lại `sdl_test` từ `tests/fixtures/schema.sql` mỗi lần chạy. Khi đổi schema thì xuất lại file này: `docker exec sdl_postgres pg_dump -U sdl_user -d sdl_db --schema-only --no-owner --no-privileges`, rồi bỏ các dòng bắt đầu bằng `\` (ví dụ `\restrict`).
 - Mỗi file test gọi `resetDb()` trong `beforeEach` và `closeAll()` trong `afterAll` ở cấp ngoài cùng của file (`tests/helpers/db.js`).
 - Khi `NODE_ENV=test`, migration lúc khởi động trong `database.js` được bỏ qua.
-- Rate limit vẫn bật trong test: `login`, `register`, `forgot-password` **dùng chung** 10 lần / 15 phút trong **một file test**. Test cần nhiều lần gọi thì tách file.
+- Rate limit vẫn bật trong test. Bộ đếm reset theo **từng file test** nhưng giữ nguyên giữa các test trong cùng file. Lưu ý: sai mật khẩu 5 lần / 15 phút cho mỗi IP+email; quên mật khẩu 3 lần / giờ cho mỗi email (dùng email khác nhau cho mỗi test); đăng ký 5 lần / giờ; đặt hàng 10 lần / phút. Hạn mức chung chỉnh được qua `RATE_LIMIT_API_MAX`; nếu đặt trong một file test thì phải `delete` trong `afterAll`.
 - Tiện ích test đăng nhập: [tests/helpers/auth.js](tests/helpers/auth.js) (`loginViaApi`, `refresh`, `getRefreshCookie`, `signTestToken`).
 - `src/utils/test_*.js` và `scratch/test_*.js` là script chạy tay cũ, không thuộc bộ test.
 
@@ -52,7 +52,12 @@ Controller là class có method `static async (req, res, next)`, trả `res.stat
 - **ID mã hoá (hashids):** API trả `hashId` thay cho ID số của sách, đơn hàng và bài viết ([src/utils/hashids.js](src/utils/hashids.js)). Controller nhận ID từ client phải `decodeBookId` / `decodeOrderId` / ... trước khi đưa vào SQL. Quên bước này từng gây lỗi xoá nhiều món trong giỏ (`removeBulkFromCart`).
 - **Thay đổi schema:** chưa có hệ migration có thứ tự. Migration là các câu `CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` chạy mỗi lần khởi động trong [src/config/database.js](src/config/database.js); production tự cập nhật khi deploy. Câu mới phải idempotent và không được làm mất dữ liệu.
 - **Cache Redis:** dùng `getCache` / `setCache` / `clearCachePattern` trong [src/config/redis.js](src/config/redis.js). Các hàm này trả `null`/`false` khi mất Redis, nên code gọi phải chạy được khi không có cache. Hiện chỉ API sách có cache (key `books:*`, TTL 1 giờ, trong `bookController`). Sửa dữ liệu sách xong phải gọi `clearCachePattern('books:*')`.
-- **Đầu vào:** `sanitizeMiddleware` (thư viện `xss`) đã lọc `req.body` toàn cục. Rate limit: chung 300 request / 15 phút; `login`, `register`, `forgot-password` 10 request / 15 phút.
+- **Đầu vào:** `sanitizeMiddleware` (thư viện `xss`) đã lọc `req.body` toàn cục. Rate limit (spec 004, [src/middleware/rateLimits.js](src/middleware/rateLimits.js), bộ đếm trong bộ nhớ):
+  - Chung 1000 / 15 phút, đếm theo tài khoản khi có access token, ngược lại theo IP (gắn ở `app.js`).
+  - Đăng nhập chỉ đếm lần **sai**: 5 / 15 phút theo IP+email, 20 / 15 phút theo IP.
+  - Quên mật khẩu: 3 / giờ theo email, 10 / giờ theo IP. Đăng ký: 5 / giờ. Đặt lại mật khẩu: 10 / 15 phút. Gia hạn phiên: 10 / 15 phút theo phiên.
+  - Đặt hàng và tạo link thanh toán: 10 / phút theo tài khoản (`rl.orderLimiter`). Upload, đánh giá, mọi thao tác ghi của quản trị: 30 / phút theo tài khoản (`rl.writeLimiter`, đặt **sau** `verifyToken`/`requireRole`).
+  - Thêm route ghi mới thì gắn limiter phù hợp. Khoá đếm theo IP phải dùng `ipKeyGenerator`.
 
 ## Môi trường và deploy
 

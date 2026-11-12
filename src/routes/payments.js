@@ -3,6 +3,8 @@ const paymentController = require('../controllers/paymentController');
 const { verifyToken } = require('../middleware/auth');
 const { decodeOrderId } = require('../utils/hashids');
 
+const rl = require('../middleware/rateLimits');
+
 const router = express.Router();
 
 // Tự động giải mã Hashid nếu có trong param :orderId
@@ -16,7 +18,7 @@ router.param('orderId', (req, res, next, orderId) => {
 });
 
 // 1. API lấy link thanh toán (Người dùng gọi - CẦN ĐĂNG NHẬP)
-router.get('/url/:orderId', verifyToken, paymentController.getPaymentUrl);
+router.get('/url/:orderId', verifyToken, rl.orderLimiter, paymentController.getPaymentUrl);
 
 // 2. API Nhận phản hồi thanh toán qua Trình duyệt của PayOS (KHÔNG CẦN ĐĂNG NHẬP)
 router.get('/payos_return', paymentController.payosReturn);

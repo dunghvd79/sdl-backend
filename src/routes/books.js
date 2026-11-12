@@ -10,6 +10,8 @@ const { decodeBookId } = require('../utils/hashids');
 const { validate } = require('../middleware/validate');
 const schemas = require('../validators/schemas');
 
+const rl = require('../middleware/rateLimits');
+
 const router = express.Router();
 
 // Tự động giải mã Hashid nếu có trong param :id
@@ -28,11 +30,11 @@ router.get('/:id', bookController.getBook);
 router.get('/:id/reviews', reviewController.getReviews);
 
 // Protected (Phải Đăng nhập + Có quyền ADMIN hoặc CURATOR)
-router.post('/', verifyToken, requireRole(['ADMIN', 'CURATOR']), validate({ body: schemas.book.write }), bookController.createBook);
-router.put('/:id', verifyToken, requireRole(['ADMIN', 'CURATOR']), validate({ body: schemas.book.write }), bookController.updateBook);
-router.delete('/:id', verifyToken, requireRole(['ADMIN']), bookController.deleteBook);
+router.post('/', verifyToken, requireRole(['ADMIN', 'CURATOR']), rl.writeLimiter, validate({ body: schemas.book.write }), bookController.createBook);
+router.put('/:id', verifyToken, requireRole(['ADMIN', 'CURATOR']), rl.writeLimiter, validate({ body: schemas.book.write }), bookController.updateBook);
+router.delete('/:id', verifyToken, requireRole(['ADMIN']), rl.writeLimiter, bookController.deleteBook);
 
 // Protected reviews (Đăng nhập mới gửi được)
-router.post('/:id/reviews', verifyToken, validate({ body: schemas.review.create }), reviewController.createReview);
+router.post('/:id/reviews', verifyToken, rl.writeLimiter, validate({ body: schemas.review.create }), reviewController.createReview);
 
 module.exports = router;

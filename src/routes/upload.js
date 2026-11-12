@@ -5,6 +5,8 @@ const fs = require('fs');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const AppError = require('../utils/AppError');
 
+const rl = require('../middleware/rateLimits');
+
 const router = express.Router();
 
 // ─── Cấu hình Multer: Lưu file vào thư mục public/uploads/covers ───────────
@@ -59,7 +61,7 @@ const upload = multer({
 
 // ─── Route: POST /api/upload/cover ──────────────────────────────────────────
 // Chỉ Admin và Curator mới được upload
-router.post('/cover', verifyToken, requireRole(['ADMIN', 'CURATOR']), upload.single('cover'), (req, res, next) => {
+router.post('/cover', verifyToken, requireRole(['ADMIN', 'CURATOR']), rl.writeLimiter, upload.single('cover'), (req, res, next) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'Không tìm thấy file ảnh trong request' });

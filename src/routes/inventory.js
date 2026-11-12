@@ -5,6 +5,8 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 const schemas = require('../validators/schemas');
 
+const rl = require('../middleware/rateLimits');
+
 const router = express.Router();
 
 // Yêu cầu đăng nhập cho tất cả các route tồn kho
@@ -17,6 +19,6 @@ router.get('/', requireRole(['ADMIN', 'CURATOR']), inventoryController.getAll);
 router.get('/transactions', requireRole(['ADMIN', 'CURATOR']), inventoryController.getTransactionHistory);
 
 // PUT /api/inventory/:bookId — Cập nhật số lượng tồn kho của 1 cuốn sách (Chỉ Admin mới có quyền)
-router.put('/:bookId', requireRole(['ADMIN']), validate({ body: schemas.inventory.update }), inventoryController.updateAvailableQty);
+router.put('/:bookId', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.inventory.update }), inventoryController.updateAvailableQty);
 
 module.exports = router;

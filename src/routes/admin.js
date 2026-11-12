@@ -2,6 +2,8 @@ const express = require('express');
 const { validate } = require('../middleware/validate');
 const schemas = require('../validators/schemas');
 
+const rl = require('../middleware/rateLimits');
+
 const router = express.Router();
 const AdminController = require('../controllers/adminController');
 const { verifyToken, requireRole } = require('../middleware/auth');
@@ -27,13 +29,13 @@ router.get('/stats', requireRole(['ADMIN']), AdminController.getDashboardStats);
 
 // Quản lý Đơn hàng (Cả Admin và Curator xem, nhưng chỉ Admin mới có quyền cập nhật trạng thái)
 router.get('/orders', requireRole(['ADMIN', 'CURATOR']), validate({ query: schemas.admin.ordersQuery }), AdminController.getAllOrders);
-router.put('/orders/:orderId/status', requireRole(['ADMIN']), validate({ body: schemas.admin.orderStatus }), AdminController.updateOrderStatus);
+router.put('/orders/:orderId/status', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.admin.orderStatus }), AdminController.updateOrderStatus);
 
 // Quản lý Người dùng (Chỉ Admin)
 router.get('/users', requireRole(['ADMIN']), validate({ query: schemas.admin.usersQuery }), AdminController.getAllUsers);
-router.put('/users/:userId/role', requireRole(['ADMIN']), validate({ body: schemas.admin.userRole }), AdminController.updateUserRole);
-router.put('/users/:userId/status', requireRole(['ADMIN']), AdminController.toggleUserStatus);
-router.delete('/users/:userId', requireRole(['ADMIN']), AdminController.deleteUser);
+router.put('/users/:userId/role', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.admin.userRole }), AdminController.updateUserRole);
+router.put('/users/:userId/status', requireRole(['ADMIN']), rl.writeLimiter, AdminController.toggleUserStatus);
+router.delete('/users/:userId', requireRole(['ADMIN']), rl.writeLimiter, AdminController.deleteUser);
 router.get('/users/:userId/activity', requireRole(['ADMIN']), AdminController.getUserActivity);
 router.get('/chats/:sessionId/messages', requireRole(['ADMIN']), AdminController.getChatMessages);
 

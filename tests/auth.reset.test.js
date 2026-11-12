@@ -13,6 +13,7 @@ const { resetDb, createUser, closeAll } = require('./helpers/db');
 const { loginViaApi, refresh } = require('./helpers/auth');
 
 let user;
+let testIndex = 0;
 
 afterAll(async () => {
     await closeAll();
@@ -21,7 +22,9 @@ afterAll(async () => {
 beforeEach(async () => {
     await resetDb();
     jest.clearAllMocks();
-    user = await createUser();
+    // Email riêng cho mỗi test: quên mật khẩu bị giới hạn 3 lần/giờ cho mỗi email (spec 004)
+    testIndex += 1;
+    user = await createUser({ email: `reset-${testIndex}@test.vn` });
 });
 
 function forgot(email) {

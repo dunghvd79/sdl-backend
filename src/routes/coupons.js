@@ -5,6 +5,8 @@ const { verifyToken, optionalVerifyToken, requireRole } = require('../middleware
 const { validate } = require('../middleware/validate');
 const schemas = require('../validators/schemas');
 
+const rl = require('../middleware/rateLimits');
+
 const router = express.Router();
 
 // ─── PUBLIC / CUSTOMER: Xem danh sách mã giảm giá đang hoạt động ────────────
@@ -18,9 +20,9 @@ router.get('/validate', validate({ query: schemas.coupon.validateQuery }), Coupo
 
 // ─── ADMIN / CURATOR: Quản lý mã giảm giá ───────────────────────────────────
 router.get('/', requireRole(['ADMIN']), CouponController.getAllCoupons);
-router.post('/', requireRole(['ADMIN']), validate({ body: schemas.coupon.write }), CouponController.createCoupon);
-router.put('/:id', requireRole(['ADMIN']), validate({ body: schemas.coupon.write }), CouponController.updateCoupon);
-router.patch('/:id/toggle', requireRole(['ADMIN']), validate({ body: schemas.coupon.toggle }), CouponController.toggleCoupon);
-router.delete('/:id', requireRole(['ADMIN']), CouponController.deleteCoupon);
+router.post('/', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.coupon.write }), CouponController.createCoupon);
+router.put('/:id', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.coupon.write }), CouponController.updateCoupon);
+router.patch('/:id/toggle', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.coupon.toggle }), CouponController.toggleCoupon);
+router.delete('/:id', requireRole(['ADMIN']), rl.writeLimiter, CouponController.deleteCoupon);
 
 module.exports = router;

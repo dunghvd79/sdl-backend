@@ -8,21 +8,23 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 const schemas = require('../validators/schemas');
 
+const rl = require('../middleware/rateLimits');
+
 const router = express.Router();
 
 // Public - Mọi người đều xem được danh mục
 router.get('/', categoryController.getAllCategories);
 
 // Protected (Admin + Curator có thể Thêm và Sửa)
-router.post('/', verifyToken, requireRole(['ADMIN', 'CURATOR']), validate({ body: schemas.category.write }), categoryController.createCategory);
-router.put('/:id', verifyToken, requireRole(['ADMIN', 'CURATOR']), validate({ body: schemas.category.write }), categoryController.updateCategory);
+router.post('/', verifyToken, requireRole(['ADMIN', 'CURATOR']), rl.writeLimiter, validate({ body: schemas.category.write }), categoryController.createCategory);
+router.put('/:id', verifyToken, requireRole(['ADMIN', 'CURATOR']), rl.writeLimiter, validate({ body: schemas.category.write }), categoryController.updateCategory);
 
 // Protected (Chỉ ADMIN mới được Xóa)
-router.delete('/:id', verifyToken, requireRole(['ADMIN']), categoryController.deleteCategory);
+router.delete('/:id', verifyToken, requireRole(['ADMIN']), rl.writeLimiter, categoryController.deleteCategory);
 
 // Protected (Admin + Curator có thể quản lý sách trong danh mục)
 router.get('/:id/books', verifyToken, requireRole(['ADMIN', 'CURATOR']), categoryController.getCategoryBooks);
-router.post('/:id/books', verifyToken, requireRole(['ADMIN', 'CURATOR']), validate({ body: schemas.category.assignBooks }), categoryController.assignBooksToCategory);
-router.delete('/:id/books/:bookId', verifyToken, requireRole(['ADMIN', 'CURATOR']), categoryController.removeBookFromCategory);
+router.post('/:id/books', verifyToken, requireRole(['ADMIN', 'CURATOR']), rl.writeLimiter, validate({ body: schemas.category.assignBooks }), categoryController.assignBooksToCategory);
+router.delete('/:id/books/:bookId', verifyToken, requireRole(['ADMIN', 'CURATOR']), rl.writeLimiter, categoryController.removeBookFromCategory);
 
 module.exports = router;

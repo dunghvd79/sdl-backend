@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 const { sanitizeMiddleware } = require('../middleware/sanitize');
 require('dotenv').config();
 
@@ -27,28 +26,10 @@ app.use(cors({
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// 3. Cấu hình Rate Limiting ngăn chặn brute-force và spam tài nguyên
-const generalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 phút
-    max: 300, // Giới hạn 300 request / 15 phút trên mỗi IP
-    message: { error: 'Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau 15 phút!' },
-    standardHeaders: true,
-    legacyHeaders: false
-});
-
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 phút
-    max: 10, // Giới hạn tối đa 10 lần thao tác nhạy cảm / 15 phút trên mỗi IP
-    message: { error: 'Thao tác quá thường xuyên. Vui lòng thử lại sau 15 phút!' },
-    standardHeaders: true,
-    legacyHeaders: false
-});
-
-// Áp dụng Rate Limiting
-app.use('/api/', generalLimiter);
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
-app.use('/api/auth/forgot-password', authLimiter);
+// 3. Giới hạn tần suất (spec 004): hạn mức chung theo tài khoản/IP ở đây; giới hạn theo chức năng
+// (đăng nhập, quên mật khẩu, đặt hàng, ghi dữ liệu...) gắn ở từng route — xem src/middleware/rateLimits.js
+const { apiLimiter } = require('../middleware/rateLimits');
+app.use('/api/', apiLimiter);
 
 // 4. Lọc mã độc XSS đầu vào trong req.body
 app.use(sanitizeMiddleware);
