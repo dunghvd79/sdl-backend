@@ -87,20 +87,6 @@ class Inventory {
         }
     }
 
-    // NHẢ CHỖ SÁCH (Hủy giữ chỗ nếu user không thanh toán)
-    static async release(bookId, quantity) {
-        // Tự động tạo bản ghi kho nếu chưa có trước khi cập nhật
-        await this.getStatus(bookId);
-
-        const query = `
-            UPDATE inventory
-            SET reserved_qty = GREATEST(0, reserved_qty - $2)
-            WHERE book_id = $1 RETURNING *
-        `;
-        const result = await pool.query(query, [bookId, quantity]);
-        return result.rows[0];
-    }
-
     // ĐIỀU CHỈNH KHO THỦ CÔNG (admin) — trong transaction của bên gọi, KHOÁ DÒNG trước khi tính.
     // mode 'delta': cộng/trừ `amount` vào tồn kho HIỆN TẠI trong DB (không tin số giao diện tính từ dữ liệu cũ).
     // mode 'set'  : đặt thẳng `amount` (kiểm kê / giao diện cũ gửi availableQty).
