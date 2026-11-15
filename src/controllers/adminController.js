@@ -81,12 +81,20 @@ class AdminController {
                 return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
             }
 
-            const oldStatus = order.status;
             const newStatus = status;
 
             const client = await pool.connect();
             try {
                 await client.query('BEGIN');
+
+                // Khoá đơn và đọc lại trạng thái TRONG transaction (B41): trạng thái đọc ở trên có thể đã cũ nếu
+                // PayOS vừa xác nhận thanh toán cùng đơn → quyết định trừ/hoàn kho phải dựa trên trạng thái hiện tại.
+                // Phía PayOS cập nhật có điều kiện (WHERE status = 'PENDING') nên chờ khoá này rồi thấy đúng trạng thái.
+                const { rows: [locked] } = await client.query(
+                    'SELECT status FROM orders WHERE id = $1 FOR UPDATE',
+                    [orderId]
+                );
+                const oldStatus = locked.status;
 
                 if (oldStatus !== newStatus) {
                     if (oldStatus === 'PENDING' && ['CONFIRMED', 'PACKAGING', 'DELIVERING', 'DELIVERED'].includes(newStatus)) {
