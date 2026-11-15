@@ -149,6 +149,7 @@ const coupon = {
 const inventory = {
     update: z.looseObject({
         availableQty: number('Số lượng tồn kho', 0, 1000000, { integer: true }),
+        quantity: number('Số lượng nhập/xuất', 1, 1000000, { integer: true }),
         type: oneOf('Loại giao dịch kho', ['STOCK_IN', 'STOCK_OUT', 'ADJUSTMENT', 'RETURN']),
         reason: text('Lý do', 1000)
     })

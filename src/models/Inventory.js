@@ -101,6 +101,46 @@ class Inventory {
         return result.rows[0];
     }
 
+    // ĐIỀU CHỈNH KHO THỦ CÔNG (admin) — trong transaction của bên gọi, KHOÁ DÒNG trước khi tính.
+    // mode 'delta': cộng/trừ `amount` vào tồn kho HIỆN TẠI trong DB (không tin số giao diện tính từ dữ liệu cũ).
+    // mode 'set'  : đặt thẳng `amount` (kiểm kê / giao diện cũ gửi availableQty).
+    // Không cho tồn kho thấp hơn số đang giữ chỗ cho đơn chờ thanh toán.
+    static async adjust(client, bookId, { mode, amount, type, reason, userId }) {
+        await client.query(
+            `INSERT INTO inventory (book_id, available_qty, reserved_qty, sold_qty)
+             VALUES ($1, 0, 0, 0) ON CONFLICT (book_id) DO NOTHING`,
+            [bookId]
+        );
+        const { rows: [inventory] } = await client.query(
+            'SELECT * FROM inventory WHERE book_id = $1 FOR UPDATE',
+            [bookId]
+        );
+
+        const prevQty = inventory.available_qty;
+        const newQty = mode === 'delta' ? prevQty + amount : amount;
+        if (newQty < inventory.reserved_qty) {
+            throw new AppError(
+                `Không thể giảm tồn kho xuống ${newQty}: đang giữ chỗ ${inventory.reserved_qty} cuốn cho đơn chờ thanh toán.`,
+                400
+            );
+        }
+
+        const { rows: [updated] } = await client.query(
+            `UPDATE inventory SET available_qty = $2, updated_at = CURRENT_TIMESTAMP
+             WHERE book_id = $1 RETURNING *`,
+            [bookId, newQty]
+        );
+
+        const diff = newQty - prevQty;
+        if (diff !== 0) {
+            const defaultReason = diff > 0
+                ? `Nhập thêm tồn kho thủ công (Từ ${prevQty} sang ${newQty})`
+                : `Điều chỉnh giảm tồn kho thủ công (Từ ${prevQty} sang ${newQty})`;
+            await this.recordTransaction(client, bookId, type || 'ADJUSTMENT', diff, prevQty, newQty, reason || defaultReason, userId);
+        }
+        return updated;
+    }
+
     // GHI NHẬT KÝ BIẾN ĐỘNG KHO
     static async recordTransaction(client, bookId, type, quantity, prevQty, newQty, reason, userId) {
         const executor = client || pool;

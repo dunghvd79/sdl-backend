@@ -33,45 +33,31 @@ class InventoryController {
         const client = await pool.connect();
         try {
             const { bookId } = req.params;
-            const { availableQty, type, reason } = req.body;
+            const { availableQty, quantity, type, reason } = req.body;
 
-            if (availableQty === undefined || availableQty < 0) {
+            // Ưu tiên lượng thay đổi (quantity + STOCK_IN/STOCK_OUT): máy chủ tự cộng/trừ trên tồn kho hiện
+            // tại, tránh ghi đè số do giao diện tính từ dữ liệu cũ. availableQty = đặt thẳng (kiểm kê / giao diện cũ).
+            let adjustment;
+            if (quantity !== undefined && quantity !== null && quantity !== '') {
+                if (type !== 'STOCK_IN' && type !== 'STOCK_OUT') {
+                    return res.status(400).json({ error: 'Khi nhập/xuất theo số lượng, loại giao dịch phải là STOCK_IN hoặc STOCK_OUT!' });
+                }
+                const amount = parseInt(quantity, 10);
+                adjustment = { mode: 'delta', amount: type === 'STOCK_IN' ? amount : -amount };
+            } else if (availableQty !== undefined && availableQty !== null && availableQty >= 0) {
+                adjustment = { mode: 'set', amount: parseInt(availableQty, 10) };
+            } else {
                 return res.status(400).json({ error: 'Số lượng không hợp lệ!' });
             }
 
             const Inventory = require('../models/Inventory');
 
             await client.query('BEGIN');
-
-            // 1. Lấy thông tin kho cũ
-            const oldStatus = await Inventory.getStatus(bookId);
-            const prevQty = oldStatus ? oldStatus.available_qty : 0;
-            const newQty = parseInt(availableQty, 10);
-            const diff = newQty - prevQty;
-
-            // 2. Cập nhật tồn kho
-            const updateQuery = `
-                INSERT INTO inventory (book_id, available_qty, reserved_qty, sold_qty)
-                VALUES ($1, $2, 0, 0)
-                ON CONFLICT (book_id)
-                DO UPDATE SET
-                    available_qty = $2,
-                    updated_at    = CURRENT_TIMESTAMP
-                RETURNING *
-            `;
-            const result = await client.query(updateQuery, [bookId, newQty]);
-
-            // 3. Nếu số lượng thay đổi, ghi log
-            if (diff !== 0) {
-                const defaultReason = diff > 0 
-                    ? `Nhập thêm tồn kho thủ công (Từ ${prevQty} sang ${newQty})`
-                    : `Điều chỉnh giảm tồn kho thủ công (Từ ${prevQty} sang ${newQty})`;
-                const logReason = reason || defaultReason;
-                const logType = type || 'ADJUSTMENT';
-                await Inventory.recordTransaction(client, bookId, logType, diff, prevQty, newQty, logReason, req.user.id);
-            }
-
+            const updated = await Inventory.adjust(client, bookId, {
+                ...adjustment, type, reason, userId: req.user.id
+            });
             await client.query('COMMIT');
+            const result = { rows: [updated] };
 
             // Invalidate book list cache to reflect new stock quantities
             await clearCachePattern('books:*');
