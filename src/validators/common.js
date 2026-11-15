@@ -2,9 +2,20 @@
 // người dùng. Lược đồ đối tượng dùng z.looseObject để bỏ qua trường thừa (FR-004).
 const { z } = require('zod');
 
+// Thiếu trường (undefined/null) → "...không được để trống"; sai kiểu → "...phải là chuỗi ký tự"
+function stringError(label) {
+    return (issue) => (issue.input === undefined || issue.input === null
+        ? `${label} không được để trống`
+        : `${label} phải là chuỗi ký tự`);
+}
+
+// Số điện thoại Việt Nam: 0 hoặc +84, đầu số 3/5/7/8/9, thêm 8 chữ số.
+// (Bản cũ viết [3|5|7|8|9]: dấu | trong [...] là ký tự thật → chấp nhận "0|12345678" — B43.)
+const VN_PHONE_REGEX = /^(0|\+84)[35789][0-9]{8}$/;
+
 // Chuỗi có giới hạn độ dài (tuỳ chọn: bắt buộc / cho phép rỗng)
 function text(label, max, { required = false } = {}) {
-    let schema = z.string({ error: `${label} phải là chuỗi ký tự` })
+    let schema = z.string({ error: required ? stringError(label) : `${label} phải là chuỗi ký tự` })
         .max(max, { error: `${label} không được dài quá ${max} ký tự` });
     if (required) {
         schema = schema.trim().min(1, { error: `${label} không được để trống` });
@@ -52,4 +63,4 @@ const listQuery = {
     search: text('Từ khoá tìm kiếm', 100)
 };
 
-module.exports = { z, text, number, oneOf, bool, bookId, idList, listQuery };
+module.exports = { z, text, number, oneOf, bool, bookId, idList, listQuery, stringError, VN_PHONE_REGEX };

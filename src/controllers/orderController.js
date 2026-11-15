@@ -18,25 +18,11 @@ function formatOrder(order) {
 
 class OrderController {
     // POST /api/orders/checkout
+    // Dữ liệu đã được kiểm tra định dạng bởi validate(schemas.order.checkout) ở route.
+    // Controller chỉ chuẩn hoá (trim) rồi chuyển cho service; luật nghiệp vụ nằm trong OrderService.
     static async checkout(req, res, next) {
         try {
             const { shippingName, shippingPhone, shippingAddress, shippingNotes, paymentMethod, couponCode, selectedBookIds } = req.body;
-
-            if (!shippingName || shippingName.trim() === '') {
-                return res.status(400).json({ error: 'Họ tên người nhận không được để trống' });
-            }
-            if (!shippingPhone || shippingPhone.trim() === '') {
-                return res.status(400).json({ error: 'Số điện thoại nhận hàng không được để trống' });
-            }
-            if (!shippingPhone.trim().match(/^(0|\+84)[3|5|7|8|9][0-9]{8}$/)) {
-                return res.status(400).json({ error: 'Số điện thoại không hợp lệ' });
-            }
-            if (!shippingAddress || shippingAddress.trim() === '') {
-                return res.status(400).json({ error: 'Địa chỉ giao hàng không được để trống' });
-            }
-            if (!paymentMethod || !['COD', 'ONLINE'].includes(paymentMethod)) {
-                return res.status(400).json({ error: 'Phương thức thanh toán không hợp lệ (phải là COD hoặc ONLINE)' });
-            }
 
             const order = await OrderService.checkout(req.user.id, {
                 shippingName: shippingName.trim(),

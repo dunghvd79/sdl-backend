@@ -3,7 +3,7 @@
 // - Trường đã có câu báo THIẾU trong controller → để tuỳ chọn ở đây (giữ câu cũ, FR-005).
 // - Giới hạn ở đây không chặt hơn kiểm tra sẵn có trong controller (để câu cũ vẫn được trả).
 // - Độ dài tối đa không vượt cột DB (tránh lỗi 500 "value too long").
-const { z, text, number, oneOf, bool, bookId, idList, listQuery } = require('./common');
+const { z, text, number, oneOf, bool, bookId, idList, listQuery, stringError, VN_PHONE_REGEX } = require('./common');
 
 const MAX_MONEY = 1000000000; // 1 tỷ đ
 
@@ -16,9 +16,15 @@ const auth = {
 };
 
 const user = {
+    // Toàn bộ kiểm tra định dạng của hồ sơ nằm ở đây (B36); controller không kiểm tra lại.
     updateProfile: z.looseObject({
-        full_name: text('Họ tên', 255),
-        phone: text('Số điện thoại', 50),
+        full_name: text('Họ tên', 255, { required: true }),
+        // Không bắt buộc. Có nhập thì bỏ mọi khoảng trắng rồi so mẫu (cho phép "091 234 5678").
+        phone: z.string({ error: 'Số điện thoại phải là chuỗi ký tự' })
+            .max(50, { error: 'Số điện thoại không được dài quá 50 ký tự' })
+            .refine(v => v.trim() === '' || VN_PHONE_REGEX.test(v.replace(/\s+/g, '')),
+                { error: 'Số điện thoại không hợp lệ (ví dụ: 0987654321)' })
+            .nullish(),
         address: text('Địa chỉ', 1000)
     }),
     changePassword: z.looseObject({ currentPassword: text('Mật khẩu hiện tại', 128), newPassword: text('Mật khẩu mới', 128) })
@@ -40,12 +46,18 @@ const cart = {
 };
 
 const order = {
+    // Toàn bộ kiểm tra định dạng của đặt hàng nằm ở đây (B36); controller không kiểm tra lại.
+    // Thứ tự trường = thứ tự báo lỗi (Zod báo trường sai đầu tiên theo thứ tự khai báo).
     checkout: z.looseObject({
-        shippingName: text('Họ tên người nhận', 255),
-        shippingPhone: text('Số điện thoại nhận hàng', 50),
-        shippingAddress: text('Địa chỉ giao hàng', 1000),
+        shippingName: text('Họ tên người nhận', 255, { required: true }),
+        shippingPhone: z.string({ error: stringError('Số điện thoại nhận hàng') })
+            .trim()
+            .min(1, { error: 'Số điện thoại nhận hàng không được để trống' })
+            .max(50, { error: 'Số điện thoại nhận hàng không được dài quá 50 ký tự' })
+            .regex(VN_PHONE_REGEX, { error: 'Số điện thoại không hợp lệ' }),
+        shippingAddress: text('Địa chỉ giao hàng', 1000, { required: true }),
         shippingNotes: text('Ghi chú giao hàng', 1000),
-        paymentMethod: text('Phương thức thanh toán', 20),
+        paymentMethod: z.enum(['COD', 'ONLINE'], { error: 'Phương thức thanh toán không hợp lệ (phải là COD hoặc ONLINE)' }),
         couponCode: text('Mã giảm giá', 50),
         selectedBookIds: idList('Danh sách sách được chọn').optional()
     }),

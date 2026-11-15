@@ -23,18 +23,8 @@ class UserController {
     // PUT /api/users/profile
     static async updateProfile(req, res, next) {
         try {
+            // Dữ liệu đã được kiểm tra định dạng bởi validate(schemas.user.updateProfile) ở route.
             const { full_name, phone, address } = req.body;
-            
-            if (!full_name || full_name.trim() === '') {
-                return res.status(400).json({ error: 'Họ tên không được để trống' });
-            }
-
-            if (phone && phone.trim() !== '') {
-                const phoneRegex = /^(0|\+84)[3|5|7|8|9][0-9]{8}$/;
-                if (!phoneRegex.test(phone.trim().replace(/\s+/g, ''))) {
-                    return res.status(400).json({ error: 'Số điện thoại không hợp lệ (ví dụ: 0987654321)' });
-                }
-            }
 
             const updatedUser = await User.updateProfileAndAddress(req.user.id, {
                 fullName: full_name.trim(),
