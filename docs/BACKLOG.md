@@ -17,7 +17,7 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 |---|---|---|---|
 | B38 | 🔴 | Tài khoản test trên **production** (`admin@test.vn` quyền ADMIN, `curator@test.vn`, `customer@test.vn`) dùng mật khẩu được ghi cứng trong repo (`scratch/seed_production_users.js`, `src/utils/seed_test_users.js`); admin chính dùng mật khẩu 6 ký tự phổ biến | Phát hiện 12/11/2026. Đổi mật khẩu / khoá tài khoản test trên production; bỏ mật khẩu cố định khỏi script seed (đọc từ biến môi trường) |
 | B39 | ⚪ | Giao diện hỏi `/notifications` mỗi 15 giây kể cả khi tab ẩn (`Navbar.jsx`, `NotificationsPage.jsx`) — tốn request vô ích | Rủi ro bị 429 đã giảm nhờ spec 004 (hạn mức chung 1000/15 phút theo tài khoản); vẫn nên dừng hỏi khi tab ẩn |
-| B41 | 🟠 | `adminController.updateOrderStatus` đọc trạng thái đơn NGOÀI transaction, không khoá, rồi trừ/hoàn kho theo trạng thái cũ và UPDATE vô điều kiện → admin xác nhận đúng lúc webhook PayOS xác nhận cùng đơn có thể trừ kho 2 lần (cùng họ lỗi đã sửa ở `confirmPaidOrder`) | Phát hiện 15/11/2026 khi rà CV. Khoá đơn `FOR UPDATE` trong transaction hoặc UPDATE có điều kiện trạng thái cũ |
+| B42 | 🟠 | Admin huỷ đơn ĐÃ thanh toán online (CONFIRMED trở đi): kho được hoàn nhưng payment vẫn `SUCCESS`, không chuyển `REFUND_PENDING` như khi khách tự huỷ (`orderService.cancelOrder`) → admin không thấy cần hoàn tiền | Quyết định nghiệp vụ; dùng chung logic hoàn tiền với `cancelOrder` |
 | B11 | 🔴 | Mật khẩu DB Render cũ và Upstash cũ còn trong lịch sử git `sdl-backend` | Dịch vụ đã bị xoá nên vô hại; nếu repo public thì cân nhắc viết lại lịch sử |
 | B12 | 🔴 | Đổi mật khẩu Neon (đã bị gửi trong phiên chat 11/11/2026), cập nhật `DB_PASSWORD` trên Render | Việc của chủ dự án |
 | B13 | 🟠 | Tiền về sau khi đơn đã huỷ: đơn giữ CANCELLED, payment `REFUND_PENDING`, nhưng **chưa có màn hình/quy trình hoàn tiền** cho admin | Cần quyết định nghiệp vụ: hoàn tiền hay vẫn giao hàng |
@@ -55,6 +55,7 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | 1 critical + 6 high trong `npm audit --omit=dev`; gỡ `nodemailer` không dùng | `2082e23` |
 | Script `scratch/` ghi cứng chuỗi kết nối DB/Redis | `46923f7` |
 | 72 chỗ trả `err.message` lộ lỗi nội bộ; lỗi trùng danh mục lộ tên ràng buộc DB — xử lý lỗi tập trung (spec 001) | `cd8c24b` |
+| `adminController.updateOrderStatus` đọc trạng thái đơn NGOÀI transaction, không khoá, rồi trừ/hoàn kho theo trạng thái cũ và UPDATE vô điều kiện → admin xác nhận đúng lúc webhook PayOS xác nhận cùng đơn có thể trừ kho 2 lần (cùng họ lỗi đã sửa ở `confirmPaidOrder`) | `7a8c367` |
 | `/auth/refresh` và `/auth/reset-password` chỉ có rate limit chung 300/15 phút — spec 004 | (commit spec 004) |
 | Rate limit chung theo IP + 10 lượt gộp cho xác thực (người chung mạng bị phạt lây, đăng nhập đúng cũng bị đếm) — spec 004 | (commit spec 004) |
 | `/mock-gateway` bật trên production, chèn `orderId`/`amount` vào HTML không escape (XSS phản chiếu) — bước 7 | (commit bước 7) |
