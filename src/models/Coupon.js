@@ -1,10 +1,11 @@
 const pool = require('../config/database');
 
 class Coupon {
-    // Tìm coupon theo code (không phân biệt hoa thường)
-    static async findByCode(code) {
-        const query = 'SELECT * FROM coupons WHERE UPPER(code) = UPPER($1)';
-        const result = await pool.query(query, [code.trim()]);
+    // Tìm coupon theo code (không phân biệt hoa thường).
+    // forUpdate: khoá dòng coupon tới hết transaction của client (checkout dùng để chống vượt lượt dùng, B45).
+    static async findByCode(code, client = pool, { forUpdate = false } = {}) {
+        const query = 'SELECT * FROM coupons WHERE UPPER(code) = UPPER($1)' + (forUpdate ? ' FOR UPDATE' : '');
+        const result = await client.query(query, [code.trim()]);
         return result.rows[0] || null;
     }
 
@@ -86,9 +87,9 @@ class Coupon {
     }
 
     // Kiểm tra xem user đã dùng coupon này chưa
-    static async checkUserUsed(userId, couponId) {
+    static async checkUserUsed(userId, couponId, client = pool) {
         const query = 'SELECT 1 FROM user_coupons WHERE user_id = $1 AND coupon_id = $2';
-        const result = await pool.query(query, [userId, couponId]);
+        const result = await client.query(query, [userId, couponId]);
         return result.rows.length > 0;
     }
 

@@ -58,6 +58,7 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | 72 chỗ trả `err.message` lộ lỗi nội bộ; lỗi trùng danh mục lộ tên ràng buộc DB — xử lý lỗi tập trung (spec 001) | `cd8c24b` |
 | Regex số điện thoại `[3 | `dea695a` |
 | `adminController.updateOrderStatus` đọc trạng thái đơn NGOÀI transaction, không khoá, rồi trừ/hoàn kho theo trạng thái cũ và UPDATE vô điều kiện → admin xác nhận đúng lúc webhook PayOS xác nhận cùng đơn có thể trừ kho 2 lần (cùng họ lỗi đã sửa ở `confirmPaidOrder`) | `7a8c367` |
+| B45 Checkout đọc mã giảm giá ngoài transaction, không khoá dòng → hai đơn đồng thời vượt `usage_limit`; cùng một người thì nhận lỗi chung "Dữ liệu này đã tồn tại." — sửa bằng `findByCode(..., client, { forUpdate: true })` + `checkUserUsed` trong transaction (`tests/coupon.race.test.js`) | (commit này) |
 | `/auth/refresh` và `/auth/reset-password` chỉ có rate limit chung 300/15 phút — spec 004 | (commit spec 004) |
 | Rate limit chung theo IP + 10 lượt gộp cho xác thực (người chung mạng bị phạt lây, đăng nhập đúng cũng bị đếm) — spec 004 | (commit spec 004) |
 | `/mock-gateway` bật trên production, chèn `orderId`/`amount` vào HTML không escape (XSS phản chiếu) — bước 7 | (commit bước 7) |

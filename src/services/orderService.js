@@ -47,7 +47,8 @@ class OrderService {
             let couponId = null;
             let discountAmount = 0;
             if (couponCode && couponCode.trim() !== '') {
-                const coupon = await Coupon.findByCode(couponCode);
+                // Khoá dòng coupon tới khi COMMIT: đơn đồng thời dùng cùng mã phải chờ, rồi đọc used_count mới nhất (B45)
+                const coupon = await Coupon.findByCode(couponCode, client, { forUpdate: true });
                 if (!coupon) {
                     throw new AppError('Mã giảm giá không tồn tại', 400);
                 }
@@ -68,7 +69,7 @@ class OrderService {
                 }
 
                 // Kiểm tra xem người dùng đã dùng mã giảm giá này chưa
-                const isUsed = await Coupon.checkUserUsed(userId, coupon.id);
+                const isUsed = await Coupon.checkUserUsed(userId, coupon.id, client);
                 if (isUsed) {
                     throw new AppError('Bạn đã sử dụng mã giảm giá này cho đơn hàng khác rồi', 400);
                 }
