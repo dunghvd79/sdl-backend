@@ -1,6 +1,7 @@
 const pool = require('../config/database');
 const User = require('../models/User');
 const { encodeOrderId } = require('../utils/hashids');
+const { invalidateBookCache } = require('../config/redis');
 
 class AdminController {
     // ==========================================
@@ -138,6 +139,7 @@ class AdminController {
                 );
 
                 await client.query('COMMIT');
+                await invalidateBookCache(); // xác nhận / huỷ / hoàn đơn làm đổi tồn kho
 
                 res.status(200).json({
                     message: 'Cập nhật trạng thái thành công',

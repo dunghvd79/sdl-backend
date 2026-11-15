@@ -103,10 +103,16 @@ async function delCache(key) {
 async function clearCachePattern(pattern) {
     if (!isConnected || !client) return false;
     try {
-        const keys = await client.keys(pattern);
-        if (keys && keys.length > 0) {
-            await client.del(keys);
-            console.log(`🧹 Redis: Đã xóa ${keys.length} keys khớp mẫu "${pattern}"`);
+        // SCAN duyệt từng lô, không chặn Redis như KEYS (KEYS là O(N) trên toàn bộ keyspace, chặn mọi lệnh khác)
+        let deleted = 0;
+        for await (const batch of client.scanIterator({ MATCH: pattern, COUNT: 100 })) {
+            const keys = Array.isArray(batch) ? batch : [batch];
+            if (keys.length > 0) {
+                deleted += await client.del(keys);
+            }
+        }
+        if (deleted > 0) {
+            console.log(`🧹 Redis: Đã xóa ${deleted} keys khớp mẫu "${pattern}"`);
         }
         return true;
     } catch (err) {
@@ -115,11 +121,18 @@ async function clearCachePattern(pattern) {
     }
 }
 
+// Xoá cache danh sách/chi tiết sách (chúng kèm số tồn kho). Gọi SAU khi transaction đổi tồn kho đã COMMIT:
+// gọi trước COMMIT thì một request khác có thể kịp ghi lại cache bằng dữ liệu cũ.
+function invalidateBookCache() {
+    return clearCachePattern('books:*');
+}
+
 module.exports = {
     client,
     isConnected: () => isConnected,
     getCache,
     setCache,
     delCache,
-    clearCachePattern
+    clearCachePattern,
+    invalidateBookCache
 };

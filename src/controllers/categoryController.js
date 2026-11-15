@@ -106,8 +106,9 @@ class CategoryController {
 
             const assigned = await Category.assignBooks(id, bookIds);
 
-            // Invalidate book caches because association changed
+            // Invalidate book caches because association changed; số sách của danh mục cũng đổi
             await clearCachePattern('books:*');
+            await delCache('categories:all');
 
             res.status(200).json({ message: 'Gán sách vào danh mục thành công', data: assigned });
         } catch (err) {
@@ -128,8 +129,9 @@ class CategoryController {
                 return res.status(404).json({ error: 'Sách không thuộc danh mục này' });
             }
 
-            // Invalidate book caches
+            // Invalidate book caches; số sách của danh mục cũng đổi
             await clearCachePattern('books:*');
+            await delCache('categories:all');
 
             res.status(200).json({ message: 'Gỡ sách khỏi danh mục thành công' });
         } catch (err) {
