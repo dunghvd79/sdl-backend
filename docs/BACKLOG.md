@@ -43,6 +43,7 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | B37 | ⚪ | Tham số đường dẫn (`:id`, `:userId`...) chưa có lược đồ; đang dựa vào giải mã hashId/parseInt trong controller | Thêm `validate({ params })` nếu cần |
 | B28 | 🟡 | Mọi cột thời gian dùng `TIMESTAMP` **không múi giờ**; `pg` đọc theo múi giờ của Node. Postgres local/Neon chạy UTC, máy dev chạy +7 → so sánh thời gian bằng `Date` của Node lệch 7 giờ (đã gặp ở refresh token, sửa bằng so sánh trong SQL). Production hiện đúng vì Render cũng UTC | Rà các chỗ so sánh thời gian ở Node; cân nhắc chuyển sang `TIMESTAMPTZ` |
 | B25 | ⚪ | Script kiểm thử chạy tay cũ `src/utils/test_*.js`, `scratch/test_*.js` không thuộc bộ test Jest | Xoá hoặc chuyển thành test Jest |
+| B40 | ⚪ | 10 cảnh báo ESLint còn lại sau khi thêm `eslint.config.js`: `no-unused-vars` (paymentController.js, Inventory.js, paymentService.js), `no-useless-escape` (authController.js, bookController.js — đã hạ xuống "warn" để không churn regex), `eslint-disable` thừa (errorHandler.js:12) | Dọn khi tiện; đều là code cũ, không ảnh hưởng chạy. Phát hiện khi thêm ESLint 15/11/2026 |
 
 ## Đã xong
 
