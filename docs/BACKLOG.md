@@ -18,7 +18,7 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | B38 | 🔴 | Tài khoản test trên **production** (`admin@test.vn` quyền ADMIN, `curator@test.vn`, `customer@test.vn`) dùng mật khẩu được ghi cứng trong repo (`scratch/seed_production_users.js`, `src/utils/seed_test_users.js`); admin chính dùng mật khẩu 6 ký tự phổ biến | Phát hiện 12/11/2026. Đổi mật khẩu / khoá tài khoản test trên production; bỏ mật khẩu cố định khỏi script seed (đọc từ biến môi trường) |
 | B39 | ⚪ | Giao diện hỏi `/notifications` mỗi 15 giây kể cả khi tab ẩn (`Navbar.jsx`, `NotificationsPage.jsx`) — tốn request vô ích | Rủi ro bị 429 đã giảm nhờ spec 004 (hạn mức chung 1000/15 phút theo tài khoản); vẫn nên dừng hỏi khi tab ẩn |
 | B42 | 🟠 | Admin huỷ đơn ĐÃ thanh toán online (CONFIRMED trở đi): kho được hoàn nhưng payment vẫn `SUCCESS`, không chuyển `REFUND_PENDING` như khi khách tự huỷ (`orderService.cancelOrder`) → admin không thấy cần hoàn tiền | Quyết định nghiệp vụ; dùng chung logic hoàn tiền với `cancelOrder` |
-| B43 | 🟡 | Regex số điện thoại `[3|5|7|8|9]` sai: dấu `|` trong `[...]` là ký tự thật → chấp nhận `0|12345678`. Chép tay ở 3 nơi: `orderController.js:31`, `userController.js:33`, frontend `CheckoutPage.jsx:271` | Đúng: `[35789]`. Sửa khi gom kiểm tra vào lược đồ (B36) — một định nghĩa dùng chung |
+| B44 | ⚪ | Trang thanh toán (frontend) bỏ khoảng trắng giữa số điện thoại trước khi kiểm tra (`091 234 5678` qua được), nhưng backend đặt hàng không bỏ → khách thấy lỗi từ máy chủ thay vì ngay trên form. Hồ sơ thì backend có bỏ | Thống nhất: hoặc frontend gửi số đã bỏ khoảng trắng, hoặc lược đồ checkout chuẩn hoá giống hồ sơ |
 | B11 | 🔴 | Mật khẩu DB Render cũ và Upstash cũ còn trong lịch sử git `sdl-backend` | Dịch vụ đã bị xoá nên vô hại; nếu repo public thì cân nhắc viết lại lịch sử |
 | B12 | 🔴 | Đổi mật khẩu Neon (đã bị gửi trong phiên chat 11/11/2026), cập nhật `DB_PASSWORD` trên Render | Việc của chủ dự án |
 | B13 | 🟠 | Tiền về sau khi đơn đã huỷ: đơn giữ CANCELLED, payment `REFUND_PENDING`, nhưng **chưa có màn hình/quy trình hoàn tiền** cho admin | Cần quyết định nghiệp vụ: hoàn tiền hay vẫn giao hàng |
@@ -41,7 +41,7 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | B32 | 🟡 | Đăng ký báo "Email này đã được đăng ký!" và đăng nhập báo "tài khoản bị khoá" trước khi kiểm tra mật khẩu → dò được email/trạng thái khoá | Có từ trước spec 002 |
 | B33 | ⚪ | Mất phản hồi của `/auth/refresh` (mạng di động rớt) → trình duyệt giữ cookie cũ → lần gia hạn sau 30 giây bị coi là dùng lại và đăng xuất | Hệ quả đã biết của thiết kế R4 (spec 002); chấp nhận |
 | B34 | ⚪ | Migration chạy bất đồng bộ sau khi server đã `listen`: vài giây đầu sau lần deploy có bảng mới, request dùng bảng đó có thể lỗi 500 | Có từ trước; cân nhắc chạy migration trước khi `listen` |
-| B36 | ⚪ | Kiểm tra thiếu trường và một số quy tắc vẫn nằm rải rác trong controller (vd `validateBookInput`, kiểm tra số điện thoại); lược đồ Zod chỉ bổ sung phần còn thiếu | Gom hết vào lược đồ khi dọn dẹp, giữ nguyên câu thông báo |
+| B36 | ⚪ | (Đã gom cho đặt hàng + hồ sơ — `dea695a`) Kiểm tra thiếu trường và một số quy tắc vẫn nằm rải rác trong controller (vd `validateBookInput`, kiểm tra số điện thoại); lược đồ Zod chỉ bổ sung phần còn thiếu | Gom hết vào lược đồ khi dọn dẹp, giữ nguyên câu thông báo |
 | B37 | ⚪ | Tham số đường dẫn (`:id`, `:userId`...) chưa có lược đồ; đang dựa vào giải mã hashId/parseInt trong controller | Thêm `validate({ params })` nếu cần |
 | B28 | 🟡 | Mọi cột thời gian dùng `TIMESTAMP` **không múi giờ**; `pg` đọc theo múi giờ của Node. Postgres local/Neon chạy UTC, máy dev chạy +7 → so sánh thời gian bằng `Date` của Node lệch 7 giờ (đã gặp ở refresh token, sửa bằng so sánh trong SQL). Production hiện đúng vì Render cũng UTC | Rà các chỗ so sánh thời gian ở Node; cân nhắc chuyển sang `TIMESTAMPTZ` |
 | B25 | ⚪ | Script kiểm thử chạy tay cũ `src/utils/test_*.js`, `scratch/test_*.js` không thuộc bộ test Jest | Xoá hoặc chuyển thành test Jest |
@@ -56,6 +56,7 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | 1 critical + 6 high trong `npm audit --omit=dev`; gỡ `nodemailer` không dùng | `2082e23` |
 | Script `scratch/` ghi cứng chuỗi kết nối DB/Redis | `46923f7` |
 | 72 chỗ trả `err.message` lộ lỗi nội bộ; lỗi trùng danh mục lộ tên ràng buộc DB — xử lý lỗi tập trung (spec 001) | `cd8c24b` |
+| Regex số điện thoại `[3 | `dea695a` |
 | `adminController.updateOrderStatus` đọc trạng thái đơn NGOÀI transaction, không khoá, rồi trừ/hoàn kho theo trạng thái cũ và UPDATE vô điều kiện → admin xác nhận đúng lúc webhook PayOS xác nhận cùng đơn có thể trừ kho 2 lần (cùng họ lỗi đã sửa ở `confirmPaidOrder`) | `7a8c367` |
 | `/auth/refresh` và `/auth/reset-password` chỉ có rate limit chung 300/15 phút — spec 004 | (commit spec 004) |
 | Rate limit chung theo IP + 10 lượt gộp cho xác thực (người chung mạng bị phạt lây, đăng nhập đúng cũng bị đếm) — spec 004 | (commit spec 004) |
