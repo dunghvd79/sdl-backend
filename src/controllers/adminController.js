@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 const User = require('../models/User');
-const { encodeOrderId } = require('../utils/hashids');
+const { encodeOrderId, decodeOrderId } = require('../utils/hashids');
 const OrderService = require('../services/orderService');
 
 class AdminController {
@@ -74,6 +74,32 @@ class AdminController {
             res.status(200).json({
                 message: changed ? 'Cập nhật trạng thái thành công' : 'Đơn hàng đã ở trạng thái này',
                 data: order
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    // POST /api/admin/orders/bulk-status  (chỉ ADMIN) — B48
+    // Body: { orderIds: [hashId], status, cancelReason? }. Luôn 200 kèm kết quả từng đơn.
+    static async bulkUpdateOrderStatus(req, res, next) {
+        try {
+            const { orderIds, status, cancelReason } = req.body;
+
+            // Giải mã hashId tại controller (quy ước); mã sai thì báo riêng đơn đó, không chặn cả lô
+            const items = [...new Set(orderIds.map(id => id.trim()))].map(id => {
+                const decoded = decodeOrderId(id);
+                return { id, orderId: Number.isNaN(decoded) ? null : decoded };
+            });
+
+            const result = await OrderService.bulkUpdateStatusByAdmin(items, status, {
+                reason: cancelReason || null,
+                adminId: req.user.id
+            });
+
+            res.status(200).json({
+                message: `Đã cập nhật ${result.succeeded.length}/${items.length} đơn hàng`,
+                data: result
             });
         } catch (error) {
             next(error);

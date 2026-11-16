@@ -8,6 +8,7 @@ const { invalidateBookCache } = require('../config/redis');
 const Inventory = require('../models/Inventory');
 const AppError = require('../utils/AppError');
 const Payment = require('../models/Payment');
+const crypto = require('crypto');
 const { ORDER_STATUS_LABELS, isValidStatus, canTransition } = require('../utils/orderStatus');
 
 class OrderService {
@@ -277,6 +278,33 @@ class OrderService {
         } finally {
             client.release();
         }
+    }
+
+    // Admin đổi trạng thái hàng loạt (B48). items: [{ id: hashId gốc, orderId: số đã giải mã | null }].
+    // Mỗi đơn chạy updateStatusByAdmin trong transaction RIÊNG: một đơn lỗi không kéo cả lô rollback.
+    // Lỗi nghiệp vụ (AppError) trả nguyên câu; lỗi khác chỉ ghi log kèm errorId, không lộ ra ngoài (spec 001).
+    static async bulkUpdateStatusByAdmin(items, newStatus, { reason = null, adminId }) {
+        const succeeded = [];
+        const failed = [];
+        for (const { id, orderId } of items) {
+            if (orderId === null) {
+                failed.push({ id, error: 'Mã đơn hàng không hợp lệ!' });
+                continue;
+            }
+            try {
+                await this.updateStatusByAdmin(orderId, newStatus, { reason, adminId });
+                succeeded.push(id);
+            } catch (err) {
+                if (err instanceof AppError) {
+                    failed.push({ id, error: err.message });
+                } else {
+                    const errorId = crypto.randomUUID();
+                    console.error(`[error ${errorId}] bulk-status order ${orderId}:`, err);
+                    failed.push({ id, error: `Đã xảy ra lỗi hệ thống (mã lỗi: ${errorId})` });
+                }
+            }
+        }
+        return { succeeded, failed };
     }
 
     // Tự động hủy đơn ONLINE hết hạn 15 phút chưa thanh toán

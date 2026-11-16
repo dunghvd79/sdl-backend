@@ -30,6 +30,8 @@ router.get('/stats', requireRole(['ADMIN']), AdminController.getDashboardStats);
 // Quản lý Đơn hàng (Cả Admin và Curator xem, nhưng chỉ Admin mới có quyền cập nhật trạng thái)
 router.get('/orders', requireRole(['ADMIN', 'CURATOR']), validate({ query: schemas.admin.ordersQuery }), AdminController.getAllOrders);
 router.put('/orders/:orderId/status', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.admin.orderStatus }), AdminController.updateOrderStatus);
+// Đổi trạng thái hàng loạt (B48): cả lô ≤ 100 đơn chỉ tính 1 lượt writeLimiter; trả kết quả từng đơn
+router.post('/orders/bulk-status', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.admin.orderStatusBulk }), AdminController.bulkUpdateOrderStatus);
 
 // Quản lý Người dùng (Chỉ Admin)
 router.get('/users', requireRole(['ADMIN']), validate({ query: schemas.admin.usersQuery }), AdminController.getAllUsers);

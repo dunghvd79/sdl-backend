@@ -176,6 +176,17 @@ const admin = {
     }),
     usersQuery: z.looseObject({ search: listQuery.search, role: text('Vai trò', 20) }),
     orderStatus: z.looseObject({ status: text('Trạng thái', 20), cancelReason: text('Lý do huỷ đơn', 1000) }),
+    // B48: đổi trạng thái hàng loạt — tối đa 100 đơn / request (giao diện tự chia lô)
+    orderStatusBulk: z.looseObject({
+        orderIds: z.array(
+            z.string({ error: 'Mã đơn hàng không hợp lệ' }).trim().min(1, { error: 'Mã đơn hàng không hợp lệ' }).max(50, { error: 'Mã đơn hàng không hợp lệ' }),
+            { error: 'Danh sách đơn hàng phải là một danh sách' }
+        )
+            .min(1, { error: 'Danh sách đơn hàng phải có ít nhất 1 phần tử' })
+            .max(100, { error: 'Danh sách đơn hàng tối đa 100 phần tử' }),
+        status: z.enum(['PENDING', 'CONFIRMED', 'PACKAGING', 'DELIVERING', 'DELIVERED', 'CANCELLED'], { error: 'Trạng thái không hợp lệ' }),
+        cancelReason: text('Lý do huỷ đơn', 1000)
+    }),
     userRole: z.looseObject({ role: text('Vai trò', 20) })
 };
 
