@@ -88,12 +88,15 @@ describe('B46: chuyển trạng thái đơn hợp lệ', () => {
 
     test('gửi lại đúng trạng thái hiện tại → 200, không tạo thêm thông báo', async () => {
         const { order } = await codOrder();
-        await setStatus(order, 'CONFIRMED').expect(200);
+        const first = await setStatus(order, 'CONFIRMED').expect(200);
         const before = await notificationCount(order);
 
-        await setStatus(order, 'CONFIRMED').expect(200);
+        const again = await setStatus(order, 'CONFIRMED').expect(200);
 
         expect(await notificationCount(order)).toBe(before);
+        // Cùng một hình dạng `data` dù có đổi hay không (dòng của bảng orders)
+        expect(Object.keys(again.body.data).sort()).toEqual(Object.keys(first.body.data).sort());
+        expect(again.body.data.status).toBe('CONFIRMED');
     });
 });
 

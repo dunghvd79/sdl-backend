@@ -232,8 +232,10 @@ class OrderService {
             const oldStatus = await Order.lockStatus(client, orderId);
 
             if (oldStatus === newStatus) {
+                // Không đổi gì: trả dòng orders hiện tại (cùng hình dạng với nhánh có đổi — RETURNING *)
+                const { rows: [current] } = await client.query('SELECT * FROM orders WHERE id = $1', [orderId]);
                 await client.query('ROLLBACK');
-                return { order: await Order.findById(orderId), changed: false };
+                return { order: current, changed: false };
             }
             if (!canTransition(oldStatus, newStatus)) {
                 throw new AppError(
