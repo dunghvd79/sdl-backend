@@ -30,6 +30,14 @@ class Payment {
         const result = await pool.query(query, [orderId]);
         return result.rows[0] || null;
     }
+
+    // 4. Đơn bị huỷ sau khi đã thu tiền: đánh dấu chờ hoàn tiền (chỉ đổi giao dịch đang SUCCESS)
+    static async markRefundPending(client, orderId) {
+        await client.query(
+            "UPDATE payments SET status = 'REFUND_PENDING' WHERE order_id = $1 AND status = 'SUCCESS'",
+            [orderId]
+        );
+    }
 }
 
 module.exports = Payment;

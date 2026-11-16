@@ -7,6 +7,8 @@ const Coupon = require('../models/Coupon');
 const { invalidateBookCache } = require('../config/redis');
 const Inventory = require('../models/Inventory');
 const AppError = require('../utils/AppError');
+const Payment = require('../models/Payment');
+const { ORDER_STATUS_LABELS, isValidStatus, canTransition } = require('../utils/orderStatus');
 
 class OrderService {
     // Biến Giỏ hàng thành Đơn hàng
@@ -151,63 +153,124 @@ class OrderService {
         return await Order.findById(orderId);
     }
 
-    // Khách hàng hủy đơn hàng (chỉ cho phép khi ở trạng thái PENDING, CONFIRMED, PACKAGING)
+    // ==========================================
+    // HUỶ ĐƠN & ĐỔI TRẠNG THÁI (B42, B47)
+    // Mọi luồng huỷ (khách, admin) đi qua _cancelInTransaction → không thể lệch nhau nữa.
+    // ==========================================
+
+    // Huỷ đơn bên trong một transaction ĐANG MỞ, với trạng thái đã đọc SAU khi khoá dòng đơn.
+    // - Đơn còn PENDING: hàng mới giữ chỗ → nhả giữ chỗ.
+    // - Đơn đã trừ kho (CONFIRMED / PACKAGING): hoàn hàng về kho.
+    // - Đã thu tiền online: payment SUCCESS → REFUND_PENDING (B42).
+    static async _cancelInTransaction(client, order, currentStatus, { actorId, reason = null, actorLabel }) {
+        for (const item of order.items || []) {
+            if (currentStatus === 'PENDING') {
+                await Inventory.cancelReservation(client, item.bookId, item.quantity, `${actorLabel} hủy đơn hàng #${order.id}`, actorId);
+            } else {
+                await Inventory.returnStock(client, item.bookId, item.quantity, `${actorLabel} hủy đơn hàng #${order.id} (Hoàn hàng)`, actorId);
+            }
+        }
+        await Payment.markRefundPending(client, order.id);
+        return Order.setStatus(client, order.id, 'CANCELLED', reason);
+    }
+
+    // Khách hàng hủy đơn hàng (được huỷ khi chưa giao: PENDING, CONFIRMED, PACKAGING — theo ORDER_TRANSITIONS)
     static async cancelOrder(orderId, userId, cancelReason = null) {
+        // Đọc đơn (kèm danh sách món) để kiểm tra chủ đơn. Trạng thái dùng để quyết định thì đọc lại sau khi khoá.
+        const order = await Order.findById(orderId);
+        if (!order) {
+            throw new AppError('Không tìm thấy đơn hàng!', 400);
+        }
+        if (order.user_id !== userId) {
+            throw new AppError('Bạn không có quyền hủy đơn hàng này!', 400);
+        }
+
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
 
-            const order = await Order.findById(orderId);
-            if (!order) {
-                throw new AppError('Không tìm thấy đơn hàng!', 400);
-            }
-
-            // Kiểm tra quyền sở hữu đơn hàng
-            if (order.user_id !== userId) {
-                throw new AppError('Bạn không có quyền hủy đơn hàng này!', 400);
-            }
-
-            const allowedStatuses = ['PENDING', 'CONFIRMED', 'PACKAGING'];
-            if (!allowedStatuses.includes(order.status)) {
+            // Khoá đơn rồi mới đọc trạng thái: nếu PayOS vừa xác nhận thanh toán thì thấy CONFIRMED → hoàn kho đúng
+            const currentStatus = await Order.lockStatus(client, orderId);
+            if (!canTransition(currentStatus, 'CANCELLED')) {
                 throw new AppError('Đơn hàng đã được giao hoặc đang vận chuyển, không thể tự hủy. Vui lòng liên hệ bộ phận hỗ trợ!', 400);
             }
 
-            const oldStatus = order.status;
-
-            // Xử lý hoàn kho tương ứng
-            if (order.items && order.items.length > 0) {
-                for (const item of order.items) {
-                    if (oldStatus === 'PENDING') {
-                        // Nếu đang chờ duyệt (PENDING): Nhả lượng giữ chỗ
-                        await Inventory.cancelReservation(client, item.bookId, item.quantity, `Khách hàng hủy đơn hàng #${orderId}`, userId);
-                    } else {
-                        // Nếu đã duyệt/đóng gói: Hoàn lại kho vật lý & trừ lượng đã bán
-                        await Inventory.returnStock(client, item.bookId, item.quantity, `Khách hàng hủy đơn hàng #${orderId} (Hoàn hàng)`, userId);
-                    }
-                }
-            }
-
-            // Cập nhật trạng thái giao dịch trong payments sang REFUND_PENDING nếu đơn hàng ONLINE đã thanh toán thành công
-            if (order.payment_method === 'ONLINE') {
-                const checkPayQuery = "SELECT id, status FROM payments WHERE order_id = $1 AND status = 'SUCCESS'";
-                const payRes = await client.query(checkPayQuery, [orderId]);
-                if (payRes.rows.length > 0) {
-                    await client.query("UPDATE payments SET status = 'REFUND_PENDING' WHERE order_id = $1 AND status = 'SUCCESS'", [orderId]);
-                }
-            }
-
-            // Cập nhật trạng thái đơn hàng thành CANCELLED kèm lý do hủy
-            const updateQuery = `
-                UPDATE orders
-                SET status = 'CANCELLED', cancel_reason = $2, updated_at = CURRENT_TIMESTAMP
-                WHERE id = $1
-                RETURNING *
-            `;
-            const result = await client.query(updateQuery, [orderId, cancelReason]);
+            const cancelled = await this._cancelInTransaction(client, order, currentStatus, {
+                actorId: userId, reason: cancelReason, actorLabel: 'Khách hàng'
+            });
 
             await client.query('COMMIT');
             await invalidateBookCache(); // trả hàng về kho
-            return result.rows[0];
+            return cancelled;
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    // Admin đổi trạng thái đơn theo bảng ORDER_TRANSITIONS (B46).
+    // Trả { order, changed }: changed = false khi đơn đã ở đúng trạng thái này (PUT idempotent, không làm gì).
+    static async updateStatusByAdmin(orderId, newStatus, { reason = null, adminId }) {
+        if (!isValidStatus(newStatus)) {
+            throw new AppError('Trạng thái không hợp lệ', 400);
+        }
+
+        // Đọc đơn (kèm danh sách món) để biết trừ/hoàn kho sách nào. KHÔNG dùng order.status để quyết định.
+        const order = await Order.findById(orderId);
+        if (!order) {
+            throw new AppError('Không tìm thấy đơn hàng', 404);
+        }
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Khoá đơn và đọc trạng thái HIỆN TẠI (B41): PayOS có thể vừa xác nhận đơn này
+            const oldStatus = await Order.lockStatus(client, orderId);
+
+            if (oldStatus === newStatus) {
+                await client.query('ROLLBACK');
+                return { order: await Order.findById(orderId), changed: false };
+            }
+            if (!canTransition(oldStatus, newStatus)) {
+                throw new AppError(
+                    `Không thể chuyển đơn hàng từ "${ORDER_STATUS_LABELS[oldStatus]}" sang "${ORDER_STATUS_LABELS[newStatus]}"`,
+                    400
+                );
+            }
+
+            let updated;
+            if (newStatus === 'CANCELLED') {
+                // Huỷ: dùng chung với khách (kho + REFUND_PENDING)
+                updated = await this._cancelInTransaction(client, order, oldStatus, {
+                    actorId: adminId, reason, actorLabel: 'Quản trị viên'
+                });
+            } else {
+                // Xác nhận đơn chờ: trừ kho thật. Các bước tiến/lùi khác không đổi kho (đã trừ lúc xác nhận).
+                if (oldStatus === 'PENDING' && newStatus === 'CONFIRMED') {
+                    for (const item of order.items || []) {
+                        await Inventory.commit(client, item.bookId, item.quantity, `Xác nhận đơn hàng #${orderId}`, adminId);
+                    }
+                }
+                updated = await Order.setStatus(client, orderId, newStatus);
+            }
+
+            // Báo cho khách (cùng transaction: lỗi thì không có thông báo "ma")
+            await client.query(
+                'INSERT INTO notifications (user_id, title, content, type) VALUES ($1, $2, $3, $4)',
+                [
+                    order.user_id,
+                    'Cập nhật trạng thái đơn hàng',
+                    `Đơn hàng #${orderId} của bạn đã được chuyển sang trạng thái: ${ORDER_STATUS_LABELS[newStatus]}.`,
+                    'ORDER'
+                ]
+            );
+
+            await client.query('COMMIT');
+            await invalidateBookCache(); // xác nhận / huỷ làm đổi tồn kho
+            return { order: updated, changed: true };
         } catch (error) {
             await client.query('ROLLBACK');
             throw error;

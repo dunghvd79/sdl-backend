@@ -1,9 +1,7 @@
 const pool = require('../config/database');
 const User = require('../models/User');
 const { encodeOrderId } = require('../utils/hashids');
-const { invalidateBookCache } = require('../config/redis');
-const AppError = require('../utils/AppError');
-const { ORDER_STATUS_LABELS, isValidStatus, canTransition } = require('../utils/orderStatus');
+const OrderService = require('../services/orderService');
 
 class AdminController {
     // ==========================================
@@ -65,120 +63,20 @@ class AdminController {
     }
 
     // PUT /api/admin/orders/:orderId/status  (chỉ ADMIN — xem routes/admin.js)
-    // Đổi trạng thái đơn + xử lý kho tương ứng + báo cho khách, tất cả trong MỘT transaction.
-    // Chỉ cho chuyển theo bảng ORDER_TRANSITIONS (src/utils/orderStatus.js, B46).
+    // Controller mỏng: luật chuyển trạng thái, kho, hoàn tiền, thông báo nằm trong OrderService (B47).
     static async updateOrderStatus(req, res, next) {
         try {
-            // [1] Đầu vào: orderId đã được router.param giải mã từ hashId; status lấy từ body
-            const { orderId } = req.params;
-            const { status } = req.body;
+            const { order, changed } = await OrderService.updateStatusByAdmin(req.params.orderId, req.body.status, {
+                reason: req.body.cancelReason || null,
+                adminId: req.user.id
+            });
 
-            // [2] Chặn trạng thái lạ (lược đồ Zod ở route cũng đã kiểm tra; đây là lớp phòng thủ thêm)
-            if (!isValidStatus(status)) {
-                return res.status(400).json({ error: 'Trạng thái không hợp lệ' });
-            }
-
-            const Order = require('../models/Order');
-            const Inventory = require('../models/Inventory');
-
-            // [3] Đọc đơn (kèm danh sách món) để biết cần trừ/hoàn kho những sách nào.
-            // Đọc NGOÀI transaction nên KHÔNG dùng order.status để quyết định — xem bước [5].
-            const order = await Order.findById(orderId);
-            if (!order) {
-                return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
-            }
-
-            const newStatus = status;
-
-            // [4] Mở transaction: đổi kho, đổi trạng thái, tạo thông báo — hoặc xong hết, hoặc không gì cả
-            const client = await pool.connect();
-            try {
-                await client.query('BEGIN');
-
-                // [5] Khoá dòng đơn và đọc lại trạng thái TRONG transaction (B41): trạng thái đọc ở trên có thể đã cũ nếu
-                // PayOS vừa xác nhận thanh toán cùng đơn → quyết định trừ/hoàn kho phải dựa trên trạng thái hiện tại.
-                // Phía PayOS cập nhật có điều kiện (WHERE status = 'PENDING') nên chờ khoá này rồi thấy đúng trạng thái.
-                const { rows: [locked] } = await client.query(
-                    'SELECT status FROM orders WHERE id = $1 FOR UPDATE',
-                    [orderId]
-                );
-                const oldStatus = locked.status;
-
-                // [5b] Gửi lại đúng trạng thái hiện tại → không làm gì (PUT idempotent, không gửi thông báo trùng)
-                if (oldStatus === newStatus) {
-                    await client.query('ROLLBACK');
-                    const { rows: [current] } = await client.query('SELECT * FROM orders WHERE id = $1', [orderId]);
-                    return res.status(200).json({ message: 'Đơn hàng đã ở trạng thái này', data: current });
-                }
-
-                // [5c] Chỉ cho chuyển theo bảng hợp lệ (không huỷ đơn đang giao, không lùi về PENDING, ...)
-                if (!canTransition(oldStatus, newStatus)) {
-                    throw new AppError(
-                        `Không thể chuyển đơn hàng từ "${ORDER_STATUS_LABELS[oldStatus]}" sang "${ORDER_STATUS_LABELS[newStatus]}"`,
-                        400
-                    );
-                }
-
-                // [6] Xử lý kho. Bảng ở [5c] chỉ còn 3 cặp đụng tới kho; các cặp khác
-                //     (tiến/lùi giữa CONFIRMED…DELIVERED) không đổi kho vì hàng đã trừ từ lúc xác nhận.
-                const items = order.items || [];
-                if (oldStatus === 'PENDING' && newStatus === 'CONFIRMED') {
-                    // [6a] Xác nhận đơn chờ: trừ kho thật (available −, reserved −, sold +)
-                    for (const item of items) {
-                        await Inventory.commit(client, item.bookId, item.quantity, `Xác nhận đơn hàng #${orderId}`, req.user.id);
-                    }
-                } else if (oldStatus === 'PENDING' && newStatus === 'CANCELLED') {
-                    // [6b] Huỷ đơn chờ: hàng mới chỉ giữ chỗ, nên nhả giữ chỗ (reserved −)
-                    for (const item of items) {
-                        await Inventory.cancelReservation(client, item.bookId, item.quantity, `Hủy đơn hàng #${orderId}`, req.user.id);
-                    }
-                } else if (newStatus === 'CANCELLED') {
-                    // [6c] Huỷ đơn đã trừ kho (CONFIRMED / PACKAGING): hoàn hàng về kho (available +, sold −)
-                    //      (payment online chưa chuyển REFUND_PENDING — backlog B42)
-                    for (const item of items) {
-                        await Inventory.returnStock(client, item.bookId, item.quantity, `Hủy đơn hàng #${orderId} (Hoàn hàng)`, req.user.id);
-                    }
-                }
-
-                // [7] Ghi trạng thái mới; nếu là huỷ và admin có nhập lý do thì lưu kèm lý do
-                let query = 'UPDATE orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *';
-                let params = [newStatus, orderId];
-                if (newStatus === 'CANCELLED' && req.body.cancelReason) {
-                    query = 'UPDATE orders SET status = $1, cancel_reason = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *';
-                    params.push(req.body.cancelReason);
-                }
-                const result = await client.query(query, params);
-
-                // [8] Tạo thông báo cho khách (cùng transaction: lỗi thì không có thông báo "ma")
-                const newStatusLabel = ORDER_STATUS_LABELS[newStatus] || newStatus;
-                await client.query(
-                    'INSERT INTO notifications (user_id, title, content, type) VALUES ($1, $2, $3, $4)',
-                    [
-                        order.user_id,
-                        'Cập nhật trạng thái đơn hàng',
-                        `Đơn hàng #${orderId} của bạn đã được chuyển sang trạng thái: ${newStatusLabel}.`,
-                        'ORDER'
-                    ]
-                );
-
-                // [9] Chốt transaction, rồi mới xoá cache sách (tồn kho hiển thị đã đổi)
-                await client.query('COMMIT');
-                await invalidateBookCache(); // xác nhận / huỷ / hoàn đơn làm đổi tồn kho
-
-                // [10] Trả đơn sau khi cập nhật
-                res.status(200).json({
-                    message: 'Cập nhật trạng thái thành công',
-                    data: result.rows[0]
-                });
-            } catch (err) {
-                // [✗] Lỗi bất kỳ bước nào → huỷ mọi thay đổi (kho, trạng thái, thông báo)
-                await client.query('ROLLBACK');
-                throw err;
-            } finally {
-                client.release(); // luôn trả kết nối về pool
-            }
+            res.status(200).json({
+                message: changed ? 'Cập nhật trạng thái thành công' : 'Đơn hàng đã ở trạng thái này',
+                data: order
+            });
         } catch (error) {
-            next(error); // → errorHandler
+            next(error);
         }
     }
 

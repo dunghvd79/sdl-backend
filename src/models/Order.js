@@ -98,6 +98,25 @@ class Order {
         const result = await pool.query(query, [orderId, status]);
         return result.rows[0];
     }
+
+    // 6. Khoá dòng đơn tới hết transaction và trả trạng thái HIỆN TẠI (null nếu không có đơn).
+    //    Dùng trước mọi quyết định trừ/hoàn kho để không đua với xác nhận thanh toán (B41).
+    static async lockStatus(client, orderId) {
+        const result = await client.query('SELECT status FROM orders WHERE id = $1 FOR UPDATE', [orderId]);
+        return result.rows[0] ? result.rows[0].status : null;
+    }
+
+    // 7. Đổi trạng thái trong transaction; reason (nếu có) ghi vào cancel_reason, không có thì giữ giá trị cũ
+    static async setStatus(client, orderId, status, reason = null) {
+        const result = await client.query(
+            `UPDATE orders
+             SET status = $2, cancel_reason = COALESCE($3, cancel_reason), updated_at = CURRENT_TIMESTAMP
+             WHERE id = $1
+             RETURNING *`,
+            [orderId, status, reason]
+        );
+        return result.rows[0];
+    }
 }
 
 module.exports = Order;
