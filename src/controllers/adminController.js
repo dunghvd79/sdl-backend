@@ -2,6 +2,8 @@ const pool = require('../config/database');
 const User = require('../models/User');
 const { encodeOrderId } = require('../utils/hashids');
 const { invalidateBookCache } = require('../config/redis');
+const AppError = require('../utils/AppError');
+const { ORDER_STATUS_LABELS, isValidStatus, canTransition } = require('../utils/orderStatus');
 
 class AdminController {
     // ==========================================
@@ -64,7 +66,7 @@ class AdminController {
 
     // PUT /api/admin/orders/:orderId/status  (chỉ ADMIN — xem routes/admin.js)
     // Đổi trạng thái đơn + xử lý kho tương ứng + báo cho khách, tất cả trong MỘT transaction.
-    // Lưu ý: hiện chưa giới hạn hướng chuyển trạng thái (cho phép đi lùi) → backlog B46.
+    // Chỉ cho chuyển theo bảng ORDER_TRANSITIONS (src/utils/orderStatus.js, B46).
     static async updateOrderStatus(req, res, next) {
         try {
             // [1] Đầu vào: orderId đã được router.param giải mã từ hashId; status lấy từ body
@@ -72,8 +74,7 @@ class AdminController {
             const { status } = req.body;
 
             // [2] Chặn trạng thái lạ (lược đồ Zod ở route cũng đã kiểm tra; đây là lớp phòng thủ thêm)
-            const validStatuses = ['PENDING', 'CONFIRMED', 'PACKAGING', 'DELIVERING', 'DELIVERED', 'CANCELLED'];
-            if (!validStatuses.includes(status)) {
+            if (!isValidStatus(status)) {
                 return res.status(400).json({ error: 'Trạng thái không hợp lệ' });
             }
 
@@ -94,9 +95,7 @@ class AdminController {
             try {
                 await client.query('BEGIN');
 
-                // [5] Khoá dòng đơn và lấy trạng thái HIỆN TẠI
-
-                // Khoá đơn và đọc lại trạng thái TRONG transaction (B41): trạng thái đọc ở trên có thể đã cũ nếu
+                // [5] Khoá dòng đơn và đọc lại trạng thái TRONG transaction (B41): trạng thái đọc ở trên có thể đã cũ nếu
                 // PayOS vừa xác nhận thanh toán cùng đơn → quyết định trừ/hoàn kho phải dựa trên trạng thái hiện tại.
                 // Phía PayOS cập nhật có điều kiện (WHERE status = 'PENDING') nên chờ khoá này rồi thấy đúng trạng thái.
                 const { rows: [locked] } = await client.query(
@@ -105,32 +104,40 @@ class AdminController {
                 );
                 const oldStatus = locked.status;
 
-                // [6] Xử lý kho theo cặp (cũ → mới). Không đổi trạng thái thì không đụng kho.
-                if (oldStatus !== newStatus) {
-                    // [6a] Đơn chờ → được xác nhận/đi giao: trừ kho thật (available −, reserved −, sold +)
-                    if (oldStatus === 'PENDING' && ['CONFIRMED', 'PACKAGING', 'DELIVERING', 'DELIVERED'].includes(newStatus)) {
-                        if (order.items && order.items.length > 0) {
-                            for (const item of order.items) {
-                                await Inventory.commit(client, item.bookId, item.quantity, `Xác nhận đơn hàng #${orderId}`, req.user.id);
-                            }
-                        }
-                    // [6b] Đơn chờ → huỷ: hàng mới chỉ giữ chỗ, nên nhả giữ chỗ (reserved −)
-                    } else if (oldStatus === 'PENDING' && newStatus === 'CANCELLED') {
-                        if (order.items && order.items.length > 0) {
-                            for (const item of order.items) {
-                                await Inventory.cancelReservation(client, item.bookId, item.quantity, `Hủy đơn hàng #${orderId}`, req.user.id);
-                            }
-                        }
-                    // [6c] Đơn đã trừ kho → huỷ: hoàn hàng về kho (available +, sold −)
-                    //      (payment online chưa chuyển REFUND_PENDING — backlog B42)
-                    } else if (['CONFIRMED', 'PACKAGING', 'DELIVERING', 'DELIVERED'].includes(oldStatus) && newStatus === 'CANCELLED') {
-                        if (order.items && order.items.length > 0) {
-                            for (const item of order.items) {
-                                await Inventory.returnStock(client, item.bookId, item.quantity, `Hủy đơn hàng #${orderId} (Hoàn hàng)`, req.user.id);
-                            }
-                        }
+                // [5b] Gửi lại đúng trạng thái hiện tại → không làm gì (PUT idempotent, không gửi thông báo trùng)
+                if (oldStatus === newStatus) {
+                    await client.query('ROLLBACK');
+                    const { rows: [current] } = await client.query('SELECT * FROM orders WHERE id = $1', [orderId]);
+                    return res.status(200).json({ message: 'Đơn hàng đã ở trạng thái này', data: current });
+                }
+
+                // [5c] Chỉ cho chuyển theo bảng hợp lệ (không huỷ đơn đang giao, không lùi về PENDING, ...)
+                if (!canTransition(oldStatus, newStatus)) {
+                    throw new AppError(
+                        `Không thể chuyển đơn hàng từ "${ORDER_STATUS_LABELS[oldStatus]}" sang "${ORDER_STATUS_LABELS[newStatus]}"`,
+                        400
+                    );
+                }
+
+                // [6] Xử lý kho. Bảng ở [5c] chỉ còn 3 cặp đụng tới kho; các cặp khác
+                //     (tiến/lùi giữa CONFIRMED…DELIVERED) không đổi kho vì hàng đã trừ từ lúc xác nhận.
+                const items = order.items || [];
+                if (oldStatus === 'PENDING' && newStatus === 'CONFIRMED') {
+                    // [6a] Xác nhận đơn chờ: trừ kho thật (available −, reserved −, sold +)
+                    for (const item of items) {
+                        await Inventory.commit(client, item.bookId, item.quantity, `Xác nhận đơn hàng #${orderId}`, req.user.id);
                     }
-                    // Các cặp khác (vd PACKAGING → DELIVERING) không đổi kho
+                } else if (oldStatus === 'PENDING' && newStatus === 'CANCELLED') {
+                    // [6b] Huỷ đơn chờ: hàng mới chỉ giữ chỗ, nên nhả giữ chỗ (reserved −)
+                    for (const item of items) {
+                        await Inventory.cancelReservation(client, item.bookId, item.quantity, `Hủy đơn hàng #${orderId}`, req.user.id);
+                    }
+                } else if (newStatus === 'CANCELLED') {
+                    // [6c] Huỷ đơn đã trừ kho (CONFIRMED / PACKAGING): hoàn hàng về kho (available +, sold −)
+                    //      (payment online chưa chuyển REFUND_PENDING — backlog B42)
+                    for (const item of items) {
+                        await Inventory.returnStock(client, item.bookId, item.quantity, `Hủy đơn hàng #${orderId} (Hoàn hàng)`, req.user.id);
+                    }
                 }
 
                 // [7] Ghi trạng thái mới; nếu là huỷ và admin có nhập lý do thì lưu kèm lý do
@@ -143,15 +150,7 @@ class AdminController {
                 const result = await client.query(query, params);
 
                 // [8] Tạo thông báo cho khách (cùng transaction: lỗi thì không có thông báo "ma")
-                const statusLabels = {
-                    PENDING: 'Chờ xử lý',
-                    CONFIRMED: 'Đã xác nhận',
-                    PACKAGING: 'Đang đóng gói',
-                    DELIVERING: 'Đang giao hàng',
-                    DELIVERED: 'Đã giao thành công',
-                    CANCELLED: 'Đã hủy'
-                };
-                const newStatusLabel = statusLabels[newStatus] || newStatus;
+                const newStatusLabel = ORDER_STATUS_LABELS[newStatus] || newStatus;
                 await client.query(
                     'INSERT INTO notifications (user_id, title, content, type) VALUES ($1, $2, $3, $4)',
                     [
