@@ -4,7 +4,7 @@
 const express = require('express');
 const bookController = require('../controllers/bookController');
 const reviewController = require('../controllers/reviewController');
-const { verifyToken, requireRole } = require('../middleware/auth');
+const { verifyToken, optionalVerifyToken, requireRole } = require('../middleware/auth');
 const { decodeBookId } = require('../utils/hashids');
 
 const { validate } = require('../middleware/validate');
@@ -25,8 +25,10 @@ router.param('id', (req, res, next, id) => {
 });
 
 // Public (Ai cũng xem được)
-router.get('/', validate({ query: schemas.book.list }), bookController.getAllBooks);
-router.get('/:id', bookController.getBook);
+// optionalVerifyToken: công khai, nhưng biết người xem là nhân viên hay không — chỉ nhân viên mới xem được
+// sách nháp / đã ẩn (adminMode), quyền lấy từ token chứ không từ tham số (B52)
+router.get('/', optionalVerifyToken, validate({ query: schemas.book.list }), bookController.getAllBooks);
+router.get('/:id', optionalVerifyToken, bookController.getBook);
 router.get('/:id/reviews', reviewController.getReviews);
 
 // Protected (Phải Đăng nhập + Có quyền ADMIN hoặc CURATOR)

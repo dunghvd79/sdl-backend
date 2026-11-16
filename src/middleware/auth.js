@@ -48,17 +48,41 @@ const requireRole = (roles) => {
     };
 };
 
-// Middleware 1.5: Giải mã Token tùy chọn (trang công khai nhưng muốn biết user nếu đã login)
+// Middleware 1.5: Giải mã Token tùy chọn (trang công khai nhưng muốn biết user nếu đã login).
+// Token sai / hết hạn → coi như khách vãng lai, nhưng ghi lại lý do ở req.authError để trang công khai có
+// "chế độ nhân viên" phân biệt được "khách" với "nhân viên có token vừa hết hạn" (B52).
 const optionalVerifyToken = (req, res, next) => {
     const token = readBearer(req);
     if (token) {
-        const { payload } = verifyAccessToken(token);
+        const { payload, error } = verifyAccessToken(token);
         if (payload) {
             req.user = { id: payload.id, email: payload.email, role: payload.role };
+        } else {
+            req.authError = error;
         }
     }
     next();
 };
+
+const STAFF_ROLES = ['ADMIN', 'CURATOR'];
+
+function isStaff(user) {
+    return Boolean(user) && STAFF_ROLES.includes(user.role);
+}
+
+// Trang công khai có chế độ nhân viên (xem cả bản nháp / đã ẩn) — B52.
+// Quyền suy ra từ req.user.role ĐÃ XÁC THỰC, không bao giờ từ tham số client gửi (?adminMode=true).
+// Trả 'staff' | 'expired' | 'none'. 'expired': có token nhưng hết hạn → nên trả 401 TOKEN_EXPIRED để giao diện
+// quản trị tự gia hạn rồi gửi lại, thay vì lặng lẽ trả danh sách thiếu bản nháp.
+function staffAccess(req) {
+    if (isStaff(req.user)) return 'staff';
+    if (req.authError === 'TOKEN_EXPIRED') return 'expired';
+    return 'none';
+}
+
+function sendTokenExpired(res) {
+    return res.status(401).json({ error: TOKEN_ERRORS.TOKEN_EXPIRED, code: 'TOKEN_EXPIRED' });
+}
 
 // Middleware 3: Endpoint dùng cookie phiên chỉ nhận yêu cầu từ giao diện được phép (chống CSRF, FR-013)
 const requireAllowedOrigin = (req, res, next) => {
@@ -72,5 +96,8 @@ module.exports = {
     verifyToken,
     optionalVerifyToken,
     requireRole,
-    requireAllowedOrigin
+    requireAllowedOrigin,
+    isStaff,
+    staffAccess,
+    sendTokenExpired
 };

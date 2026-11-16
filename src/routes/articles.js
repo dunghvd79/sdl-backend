@@ -1,6 +1,6 @@
 const express = require('express');
 const articleController = require('../controllers/articleController');
-const { verifyToken, requireRole } = require('../middleware/auth');
+const { verifyToken, optionalVerifyToken, requireRole } = require('../middleware/auth');
 const { decodeArticleId } = require('../utils/hashids');
 
 const { validate } = require('../middleware/validate');
@@ -21,9 +21,10 @@ router.param('id', (req, res, next, id) => {
 });
 
 // Public (Ai cũng xem được)
-router.get('/', validate({ query: schemas.article.list }), articleController.getAllArticles);
-router.get('/categories', articleController.getUniqueCategories);
-router.get('/:id', articleController.getArticle);
+// optionalVerifyToken: chỉ nhân viên mới xem được bài nháp / đã ẩn (adminMode, status) — B52
+router.get('/', optionalVerifyToken, validate({ query: schemas.article.list }), articleController.getAllArticles);
+router.get('/categories', optionalVerifyToken, articleController.getUniqueCategories);
+router.get('/:id', optionalVerifyToken, articleController.getArticle);
 
 // Protected (Phải Đăng nhập + Có quyền ADMIN hoặc CURATOR)
 router.post('/', verifyToken, requireRole(['ADMIN', 'CURATOR']), rl.writeLimiter, validate({ body: schemas.article.write }), articleController.createArticle);

@@ -4,6 +4,7 @@
 const BookService = require('../services/bookService');
 const { encodeBookId } = require('../utils/hashids');
 const { getCache, setCache, clearCachePattern } = require('../config/redis');
+const { staffAccess, sendTokenExpired } = require('../middleware/auth');
 
 function validateBookInput(data) {
     const { title, author, isbn, description, price, status } = data;
@@ -99,8 +100,12 @@ class BookController {
             const categoryId = req.query.categoryId || null;
             const sortBy = req.query.sortBy || 'newest';
             const maxPrice = req.query.maxPrice ? parseFloat(req.query.maxPrice) : null;
-            // Admin mode: lấy cả sách ẩn và bản nháp (khi có query adminMode=true)
-            const adminMode = req.query.adminMode === 'true';
+            // Admin mode: lấy cả sách ẩn và bản nháp — CHỈ khi người gọi là nhân viên đã xác thực (B52).
+            // Khách gửi ?adminMode=true thì bị bỏ qua (vẫn chỉ thấy sách đã xuất bản).
+            const wantsAdminMode = req.query.adminMode === 'true';
+            const access = staffAccess(req);
+            if (wantsAdminMode && access === 'expired') return sendTokenExpired(res);
+            const adminMode = wantsAdminMode && access === 'staff';
             const isFeatured = req.query.isFeatured || '';
 
             const cacheKey = `books:all:${limit}_${page}_${search}_${categoryId}_${sortBy}_${maxPrice}_${adminMode}_${isFeatured}`;
@@ -161,18 +166,25 @@ class BookController {
         try {
             const { id } = req.params;
             const cacheKey = `books:detail:${id}`;
-            const cachedData = await getCache(cacheKey);
-            if (cachedData) {
-                return res.status(200).json({ data: cachedData });
+            let responseData = await getCache(cacheKey);
+            if (!responseData) {
+                const book = await BookService.getBookDetails(id);
+                if (!book) {
+                    return res.status(404).json({ error: 'Không tìm thấy cuốn sách này' });
+                }
+                responseData = { ...book, hashId: encodeBookId(book.id) };
+                await setCache(cacheKey, responseData, 3600);
             }
 
-            const book = await BookService.getBookDetails(id);
-            if (!book) {
-                return res.status(404).json({ error: 'Không tìm thấy cuốn sách này' });
+            // Sách nháp / đã ẩn: chỉ nhân viên xem được (B52). Kiểm SAU khi đọc cache, vì cache dùng chung cho mọi
+            // người xem — nhân viên xem trước làm sách nháp nằm trong cache, khách không được đọc lại từ đó.
+            if (responseData.status !== 'PUBLISHED') {
+                const access = staffAccess(req);
+                if (access === 'expired') return sendTokenExpired(res);
+                if (access !== 'staff') {
+                    return res.status(404).json({ error: 'Không tìm thấy cuốn sách này' });
+                }
             }
-
-            const responseData = book ? { ...book, hashId: encodeBookId(book.id) } : null;
-            await setCache(cacheKey, responseData, 3600);
 
             res.status(200).json({ data: responseData });
         } catch (err) {
