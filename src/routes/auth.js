@@ -20,6 +20,9 @@ router.post('/refresh', requireAllowedOrigin, rl.refreshLimiter, authController.
 router.post('/logout', requireAllowedOrigin, authController.logout);
 router.post('/logout-all', requireAllowedOrigin, verifyToken, authController.logoutAll);
 
+// Spec 005: đăng nhập bằng Google — kiểm tra Origin chống login CSRF (trang lạ đăng nhập nạn nhân vào tài khoản khác)
+router.post('/google', requireAllowedOrigin, rl.googleLoginLimiter, validate({ body: schemas.auth.google }), authController.google);
+
 // Các API Protected (Phải có Token mới vào được)
 router.get('/profile', verifyToken, authController.getProfile);
 

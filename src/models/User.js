@@ -41,9 +41,46 @@ class User {
         return result.rows[0] || null;
     }
 
+    // Spec 005: tìm theo mã định danh Google (sub) — cách nhận diện chính của người dùng Google
+    static async findByGoogleSub(sub, client = pool) {
+        const result = await client.query('SELECT * FROM users WHERE google_sub = $1', [sub]);
+        return result.rows[0] || null;
+    }
+
+    // Spec 005: tạo tài khoản từ Google — luôn CUSTOMER, không mật khẩu, email đã được Google xác minh.
+    // Trùng google_sub / LOWER(email) (hai request đồng thời) → Postgres ném 23505, bên gọi tra lại.
+    static async createFromGoogle({ sub, email, fullName }, client = pool) {
+        const result = await client.query(
+            `INSERT INTO users (email, password_hash, full_name, role, google_sub, email_verified_at)
+             VALUES ($1, NULL, $2, 'CUSTOMER', $3, NOW())
+             RETURNING id, email, full_name, role, is_active, google_sub`,
+            [normalizeEmail(email), fullName, sub]
+        );
+        return result.rows[0];
+    }
+
+    // Spec 005: liên kết Google vào tài khoản có sẵn cùng email (chạy trong transaction của bên gọi).
+    // Email chưa từng được xác minh (B56) nên người đặt mật khẩu cũ có thể không phải chủ email → huỷ mật khẩu
+    // và mã đặt lại; chỉ người chứng minh sở hữu email qua Google còn quyền. Điều kiện `google_sub IS NULL`:
+    // request khác vừa liên kết trước thì trả null để bên gọi đọc lại.
+    static async linkGoogle(client, userId, sub) {
+        const result = await client.query(
+            `UPDATE users
+             SET google_sub = $2, email_verified_at = NOW(), password_hash = NULL,
+                 reset_password_token = NULL, reset_password_expires = NULL
+             WHERE id = $1 AND google_sub IS NULL
+             RETURNING id, email, full_name, role, is_active, google_sub`,
+            [userId, sub]
+        );
+        return result.rows[0] || null;
+    }
+
     // Tìm user theo ID
     static async findById(id) {
-        const query = 'SELECT id, email, full_name, phone, address, role, is_active, session_id, created_at FROM users WHERE id = $1';
+        // has_password (spec 005): giao diện ẩn form đổi mật khẩu cho tài khoản chỉ dùng Google; không trả hash
+        const query = `SELECT id, email, full_name, phone, address, role, is_active, session_id, created_at,
+                              (password_hash IS NOT NULL) AS has_password
+                       FROM users WHERE id = $1`;
         const result = await pool.query(query, [id]);
         return result.rows[0] || null;
     }

@@ -31,6 +31,11 @@ function checkEnv(env = process.env) {
         warnings.push(`EMAIL_FROM dùng hộp thư công cộng (${fromDomain}): Resend sẽ từ chối. Dùng địa chỉ thuộc tên miền đã xác minh, hoặc onboarding@resend.dev khi thử nghiệm.`);
     }
 
+    // Spec 005: không có Client ID thì /auth/google trả 503 — tính năng tắt, server vẫn chạy (constitution V)
+    if (isBlank(env.GOOGLE_CLIENT_ID)) {
+        warnings.push('Thiếu GOOGLE_CLIENT_ID: đăng nhập bằng Google bị tắt.');
+    }
+
     return { errors, warnings };
 }
 

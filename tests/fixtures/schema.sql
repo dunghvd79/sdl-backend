@@ -696,7 +696,7 @@ ALTER SEQUENCE public.user_profiles_id_seq OWNED BY public.user_profiles.id;
 CREATE TABLE public.users (
     id integer NOT NULL,
     email character varying(255) NOT NULL,
-    password_hash character varying(255) NOT NULL,
+    password_hash character varying(255),
     role character varying(50) DEFAULT 'CUSTOMER'::character varying,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     full_name character varying(255),
@@ -706,6 +706,8 @@ CREATE TABLE public.users (
     session_id character varying(255),
     reset_password_token character varying(255),
     reset_password_expires timestamp without time zone,
+    google_sub character varying(255),
+    email_verified_at timestamp without time zone,
     CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['CUSTOMER'::character varying, 'ADMIN'::character varying, 'CURATOR'::character varying])::text[])))
 );
 
@@ -1215,6 +1217,13 @@ CREATE INDEX idx_users_email ON public.users USING btree (email);
 --
 
 CREATE UNIQUE INDEX users_email_lower_key ON public.users USING btree (lower((email)::text));
+
+
+--
+-- Name: users_google_sub_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX users_google_sub_key ON public.users USING btree (google_sub);
 
 
 --

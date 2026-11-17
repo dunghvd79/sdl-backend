@@ -12,7 +12,9 @@ const auth = {
     login: z.looseObject({ email: text('Email', 255), password: text('Mật khẩu', 128) }),
     register: z.looseObject({ email: text('Email', 255), password: text('Mật khẩu', 128), fullName: text('Họ và tên', 255) }),
     forgotPassword: z.looseObject({ email: text('Email', 255) }),
-    resetPassword: z.looseObject({ token: text('Mã xác thực', 200), newPassword: text('Mật khẩu mới', 128) })
+    resetPassword: z.looseObject({ token: text('Mã xác thực', 200), newPassword: text('Mật khẩu mới', 128) }),
+    // Spec 005: ID token do Google Identity Services trả về (JWT ~1–2 KB)
+    google: z.looseObject({ credential: text('Mã xác thực Google', 4096, { required: true }) })
 };
 
 const user = {

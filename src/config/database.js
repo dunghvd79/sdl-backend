@@ -443,6 +443,20 @@ if (process.env.NODE_ENV !== 'test') pool.query('SELECT NOW()', async (err, res)
         } catch (emailErr) {
             console.error('❌ Migration users_email_lower_key gặp lỗi (có email trùng khác kiểu chữ?):', emailErr.message);
         }
+
+        // Spec 005 — đăng nhập bằng Google: mã định danh Google (sub), thời điểm email được xác minh,
+        // tài khoản chỉ dùng Google không có mật khẩu (password_hash NULL). Không sửa dữ liệu cũ.
+        try {
+            await pool.query(`
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub VARCHAR(255);
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP;
+                ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+                CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_key ON users (google_sub);
+            `);
+            console.log('✅ Migration: Đã kiểm tra/thêm google_sub, email_verified_at; password_hash cho phép NULL.');
+        } catch (googleErr) {
+            console.error('❌ Migration đăng nhập Google gặp lỗi:', googleErr.message);
+        }
     }
 });
 

@@ -151,6 +151,11 @@ tạo hay nâng quyền quản trị.
 - **FR-005**: Khi email Google khớp một tài khoản chưa liên kết Google, hệ thống PHẢI liên kết vào tài khoản
   đó, giữ nguyên dữ liệu và vai trò, đồng thời trong cùng một thao tác: huỷ mật khẩu hiện có, huỷ mọi mã
   đặt lại mật khẩu đang chờ, thu hồi mọi phiên đang có, và ghi nhận email đã xác minh.
+- **FR-005a** *(bổ sung sau code review 17/11/2026, chủ dự án duyệt)*: Chỉ tự liên kết (FR-005) khi Google là
+  bên quản lý hộp thư: email `@gmail.com` / `@googlemail.com`, hoặc tài khoản Google Workspace (token có `hd`).
+  Trường hợp khác (tài khoản Google tạo bằng email ngoài — người từng giữ email đó vẫn có thể có
+  `email_verified`) PHẢI bị từ chối 409, tài khoản không đổi; khách đăng nhập bằng mật khẩu. Tạo tài khoản mới
+  (FR-004) không bị ảnh hưởng.
 - **FR-006**: Khi email Google khớp một tài khoản đã liên kết với mã định danh Google khác, hệ thống PHẢI từ
   chối với thông báo tiếng Việt và không thay đổi tài khoản nào.
 - **FR-007**: Tài khoản bị khoá PHẢI bị từ chối đăng nhập Google với cùng thông báo như đăng nhập mật khẩu.

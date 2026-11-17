@@ -30,6 +30,8 @@ nếu request mang cookie `sdl_rt` cũ thì phiên đó bị thu hồi:
 | 401 | — | Tài khoản của bạn đã bị khóa bởi quản trị viên! | `is_active = false` (cùng câu với `/auth/login`) |
 | 403 | — | Nguồn yêu cầu không được phép. | `Origin` không nằm trong danh sách cho phép (`requireAllowedOrigin` hiện có) |
 | 409 | `GOOGLE_EMAIL_LINKED` | Email này đã được liên kết với một tài khoản Google khác. | Email khớp tài khoản đã có `google_sub` khác |
+| 409 | `GOOGLE_LINK_NOT_ALLOWED` | Email này đã có tài khoản. Vui lòng đăng nhập bằng email và mật khẩu. | Email khớp tài khoản chưa liên kết, nhưng Google không phải bên quản lý hộp thư: email không phải `@gmail.com` / `@googlemail.com` và token không có `hd` (Workspace) — quyết định sau code review 17/11/2026 |
+| 400 | — | Dữ liệu này đã tồn tại. | (Rất hiếm) vẫn trùng `google_sub` / email sau một lần tra lại — đi qua errorHandler `23505` |
 | 429 | — | (câu của rate limit) | Quá 20 lần thất bại / 15 phút / IP |
 | 503 | `GOOGLE_NOT_CONFIGURED` | Đăng nhập bằng Google chưa được bật. | Thiếu `GOOGLE_CLIENT_ID` trên máy chủ |
 | 503 | `GOOGLE_UNAVAILABLE` | Không kết nối được Google, vui lòng thử lại sau. | Không lấy được khoá công khai của Google |

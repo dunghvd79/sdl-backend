@@ -38,8 +38,8 @@ vấn nào cho các request khác
 **Constraints**: Không có client secret ở bất kỳ đâu; không lưu access token Google; frontend và API khác
 site (cookie bên thứ ba — B19, giữ nguyên); thiếu cấu hình Google không được chặn khởi động
 
-**Scale/Scope**: Backend ~9 file sửa + 3 file mới (service, test, migration trong database.js); frontend
-~6 file sửa + 2 file mới (GoogleLoginButton + test)
+**Scale/Scope**: Backend ~11 file sửa + 5 file mới (`googleIdentity.js`, `tests/helpers/google.js`, `tests/google.identity.test.js`, `tests/auth.google.test.js`, `tests/auth.google.password.test.js`, `tests/auth.google.race.test.js`); frontend
+~6 file sửa + 4 file mới (GoogleLoginButton + test, ProfilePage.test, `.env.example`)
 
 ## Constitution Check
 

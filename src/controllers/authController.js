@@ -91,6 +91,29 @@ class AuthController {
         }
     }
 
+    // API: Đăng nhập bằng Google (POST /api/auth/google) — spec 005. Origin + body đã kiểm tra ở route.
+    // Phản hồi và cookie giống hệt /auth/login để giao diện dùng chung một cách lưu phiên.
+    static async google(req, res, next) {
+        try {
+            const result = await AuthService.loginWithGoogle(req.body.credential, sessionMeta(req));
+
+            // Trình duyệt đang giữ phiên khác: huỷ phiên đó (như /auth/login)
+            const previousRefresh = readRefreshCookie(req);
+            if (previousRefresh) {
+                await AuthService.logout(previousRefresh);
+            }
+
+            setRefreshCookie(res, result.refreshToken);
+            res.status(200).json({
+                message: 'Đăng nhập thành công!',
+                user: result.user,
+                token: result.accessToken
+            });
+        } catch (err) {
+            next(err);
+        }
+    }
+
     // API: Gia hạn phiên (POST /api/auth/refresh) — cookie sdl_rt, Origin đã kiểm tra ở route
     static async refresh(req, res, next) {
         try {

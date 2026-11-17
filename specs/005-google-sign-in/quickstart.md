@@ -11,6 +11,8 @@
    - Render `sdl-backend` → `GOOGLE_CLIENT_ID`
    - Cloudflare Pages `sdl-frontend` → `VITE_GOOGLE_CLIENT_ID` (rồi build lại)
    - Local: `sdl-project/.env` và `sdl-frontend/.env` tương ứng (chủ dự án tự thêm).
+   - **Phải đặt cả hai** (cùng một Client ID): chỉ có biến frontend thì nút vẫn hiện nhưng bấm vào báo
+     "Đăng nhập bằng Google chưa được bật." (503); chỉ có biến backend thì nút không hiện.
 
 ## Kiểm chứng tự động
 

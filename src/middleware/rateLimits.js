@@ -111,6 +111,15 @@ const resetPasswordLimiter = limiter({
     message: 'Bạn đã thử đặt lại mật khẩu quá nhiều lần.'
 });
 
+// Spec 005: đăng nhập Google — chỉ đếm lần thất bại, theo IP (chưa biết email trước khi xác minh token)
+const googleLoginLimiter = limiter({
+    windowMs: 15 * MINUTE,
+    limit: 20,
+    skipSuccessfulRequests: true,
+    keyGenerator: ipKey,
+    message: 'Có quá nhiều lần đăng nhập Google thất bại từ mạng của bạn.'
+});
+
 // FR-004
 const refreshLimiter = limiter({
     windowMs: 15 * MINUTE,
@@ -141,6 +150,7 @@ module.exports = {
     forgotPasswordLimiters: [forgotPerIp, forgotPerEmail],
     registerLimiter,
     resetPasswordLimiter,
+    googleLoginLimiter,
     refreshLimiter,
     orderLimiter,
     writeLimiter

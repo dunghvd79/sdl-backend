@@ -5,7 +5,8 @@ const { checkEnv, assertEnv } = require('../src/config/env');
 const GOOD = {
     JWT_SECRET: 'x'.repeat(48),
     RESEND_API_KEY: 're_test_key',
-    EMAIL_FROM: 'no-reply@pigeon-bookstore.vn'
+    EMAIL_FROM: 'no-reply@pigeon-bookstore.vn',
+    GOOGLE_CLIENT_ID: 'abc.apps.googleusercontent.com'
 };
 
 describe('checkEnv', () => {
@@ -37,6 +38,12 @@ describe('checkEnv', () => {
             const { warnings } = checkEnv({ ...GOOD, EMAIL_FROM: from });
             expect(warnings).toEqual([expect.stringContaining('EMAIL_FROM')]);
         }
+    });
+
+    it('spec 005: thiếu GOOGLE_CLIENT_ID → cảnh báo đăng nhập Google bị tắt, không chặn khởi động', () => {
+        const { errors, warnings } = checkEnv({ ...GOOD, GOOGLE_CLIENT_ID: '  ' });
+        expect(errors).toEqual([]);
+        expect(warnings).toEqual([expect.stringContaining('GOOGLE_CLIENT_ID')]);
     });
 
     it('thông báo không bao giờ chứa giá trị bí mật', () => {
