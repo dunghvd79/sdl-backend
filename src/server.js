@@ -1,3 +1,7 @@
+// Kiểm tra cấu hình trước mọi thứ khác: thiếu biến bắt buộc thì dừng ngay (B53)
+require('dotenv').config();
+require('./config/env').assertEnv();
+
 const app = require('./config/app');
 require('./config/database'); // Gọi file này để chạy test kết nối DB
 const OrderService = require('./services/orderService');
