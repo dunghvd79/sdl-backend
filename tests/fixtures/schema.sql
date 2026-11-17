@@ -1211,6 +1211,13 @@ CREATE INDEX idx_users_email ON public.users USING btree (email);
 
 
 --
+-- Name: users_email_lower_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX users_email_lower_key ON public.users USING btree (lower((email)::text));
+
+
+--
 -- Name: book_categories book_categories_book_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 

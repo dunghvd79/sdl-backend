@@ -433,6 +433,16 @@ if (process.env.NODE_ENV !== 'test') pool.query('SELECT NOW()', async (err, res)
         } catch (rtErr) {
             console.error('❌ Migration refresh_tokens gặp lỗi:', rtErr.message);
         }
+
+        // B55: email không phân biệt hoa thường — chặn hai tài khoản chỉ khác kiểu chữ, và giúp
+        // `WHERE LOWER(email) = $1` dùng được index. Không sửa dữ liệu cũ. Nếu DB đã có email trùng khác
+        // kiểu chữ thì tạo index thất bại: chỉ ghi log (server vẫn chạy, findByEmail vẫn đúng), xử lý tay.
+        try {
+            await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_key ON users (LOWER(email))');
+            console.log('✅ Migration: Đã kiểm tra/tạo unique index users_email_lower_key.');
+        } catch (emailErr) {
+            console.error('❌ Migration users_email_lower_key gặp lỗi (có email trùng khác kiểu chữ?):', emailErr.message);
+        }
     }
 });
 

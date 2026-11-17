@@ -4,9 +4,16 @@
 const pool = require('../config/database');
 const bcrypt = require('bcryptjs');
 
+// Email không phân biệt hoa thường (B55): lưu chữ thường, tìm bằng LOWER(email).
+// DB có unique index trên LOWER(email) (migration trong config/database.js).
+function normalizeEmail(email) {
+    return String(email).trim().toLowerCase();
+}
+
 class User {
     // Tạo user mới
     static async create({ email, password, fullName, role = 'CUSTOMER' }) {
+        email = normalizeEmail(email);
         // Băm (Hash) mật khẩu với độ khó là 10
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -20,10 +27,17 @@ class User {
         return result.rows[0];
     }
 
-    // Tìm user theo Email
+    // Tìm user theo Email, không phân biệt hoa thường. Tài khoản cũ có thể còn lưu email viết hoa:
+    // LOWER hai vế vẫn tìm thấy. Nếu dữ liệu cũ lỡ có hai bản chỉ khác kiểu chữ (unique index chưa tạo được),
+    // ưu tiên bản khớp chính xác rồi bản cũ nhất để kết quả luôn cố định.
     static async findByEmail(email) {
-        const query = 'SELECT * FROM users WHERE email = $1';
-        const result = await pool.query(query, [email]);
+        const query = `
+            SELECT * FROM users
+            WHERE LOWER(email) = $1
+            ORDER BY (email = $2) DESC, id
+            LIMIT 1
+        `;
+        const result = await pool.query(query, [normalizeEmail(email), String(email).trim()]);
         return result.rows[0] || null;
     }
 
