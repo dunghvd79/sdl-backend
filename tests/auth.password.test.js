@@ -28,7 +28,7 @@ function changePassword(accessToken, currentPassword, newPassword) {
 describe('US4: chính sách mật khẩu và đổi mật khẩu', () => {
     test('đăng ký với mật khẩu 7 ký tự → 400 theo chính sách mới', async () => {
         const res = await request(app)
-            .post('/api/auth/register')
+            .post('/api/auth/register').set('Origin', 'http://localhost:5173')
             .send({ email: 'moi@test.vn', password: 'abc1234', fullName: 'Nguoi Moi' });
 
         expect(res.status).toBe(400);

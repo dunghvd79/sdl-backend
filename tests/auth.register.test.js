@@ -16,11 +16,11 @@ beforeEach(async () => {
 
 describe('POST /api/auth/register', () => {
     it('trả user cùng dạng với đăng nhập (không lộ cột DB), kèm access token và cookie phiên', async () => {
-        const res = await request(app).post('/api/auth/register')
+        const res = await request(app).post('/api/auth/register').set('Origin', 'http://localhost:5173')
             .send({ email: 'moi@test.vn', password: 'matkhau123', fullName: 'Khach Moi' })
             .expect(201);
 
-        const login = await request(app).post('/api/auth/login')
+        const login = await request(app).post('/api/auth/login').set('Origin', 'http://localhost:5173')
             .send({ email: 'moi@test.vn', password: 'matkhau123' })
             .expect(200);
 
@@ -31,7 +31,7 @@ describe('POST /api/auth/register', () => {
     });
 
     it('mỗi lần đăng ký tạo đúng 1 phiên', async () => {
-        await request(app).post('/api/auth/register')
+        await request(app).post('/api/auth/register').set('Origin', 'http://localhost:5173')
             .send({ email: 'motphien@test.vn', password: 'matkhau123', fullName: 'Khach Moi' })
             .expect(201);
 

@@ -23,7 +23,7 @@ beforeAll(async () => {
 });
 
 function login(email, password) {
-    return request(app).post('/api/auth/login').send({ email, password });
+    return request(app).post('/api/auth/login').set('Origin', 'http://localhost:5173').send({ email, password });
 }
 
 describe('US1: chống dò mật khẩu', () => {

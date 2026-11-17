@@ -18,7 +18,7 @@ describe('POST /api/auth/login', () => {
 
     test('đúng email và mật khẩu thì trả 200 kèm token và thông tin user', async () => {
         const res = await request(app)
-            .post('/api/auth/login')
+            .post('/api/auth/login').set('Origin', 'http://localhost:5173')
             .send({ email: customer.email, password: customer.password });
 
         expect(res.status).toBe(200);
@@ -33,7 +33,7 @@ describe('POST /api/auth/login', () => {
 
     test('sai mật khẩu thì trả 401 và không có token', async () => {
         const res = await request(app)
-            .post('/api/auth/login')
+            .post('/api/auth/login').set('Origin', 'http://localhost:5173')
             .send({ email: customer.email, password: 'sai-mat-khau-1' });
 
         expect(res.status).toBe(401);
@@ -43,7 +43,7 @@ describe('POST /api/auth/login', () => {
 
     test('email không tồn tại trả cùng thông báo như sai mật khẩu', async () => {
         const res = await request(app)
-            .post('/api/auth/login')
+            .post('/api/auth/login').set('Origin', 'http://localhost:5173')
             .send({ email: 'khong-ton-tai@test.vn', password: 'password123' });
 
         expect(res.status).toBe(401);
@@ -51,7 +51,7 @@ describe('POST /api/auth/login', () => {
     });
 
     test('thiếu email hoặc mật khẩu thì trả 400', async () => {
-        const res = await request(app).post('/api/auth/login').send({ email: customer.email });
+        const res = await request(app).post('/api/auth/login').set('Origin', 'http://localhost:5173').send({ email: customer.email });
 
         expect(res.status).toBe(400);
     });
@@ -61,7 +61,7 @@ describe('POST /api/auth/login', () => {
         await pool.query('UPDATE users SET is_active = false WHERE id = $1', [customer.id]);
 
         const res = await request(app)
-            .post('/api/auth/login')
+            .post('/api/auth/login').set('Origin', 'http://localhost:5173')
             .send({ email: customer.email, password: customer.password });
 
         expect(res.status).toBe(401);
@@ -79,7 +79,7 @@ describe('GET /api/auth/profile', () => {
 
     async function login() {
         const res = await request(app)
-            .post('/api/auth/login')
+            .post('/api/auth/login').set('Origin', 'http://localhost:5173')
             .send({ email: customer.email, password: customer.password });
         return res.body.token;
     }

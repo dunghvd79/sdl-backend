@@ -112,6 +112,51 @@ describe('US5: chỉ giao diện được phép dùng cookie phiên', () => {
         expect(still.status).toBe(200);
     });
 
+    // B68: login CSRF — trang lạ dùng <form method=POST> (urlencoded) đăng nhập trình duyệt nạn nhân
+    // vào tài khoản kẻ xấu. Đăng nhập / đăng ký cũng set cookie sdl_rt nên phải kiểm tra Origin.
+    test('đăng nhập bằng form từ nguồn lạ → 403, không cấp cookie phiên', async () => {
+        const res = await request(app)
+            .post('/api/auth/login')
+            .set('Origin', 'https://evil.example')
+            .type('form')
+            .send({ email: user.email, password: user.password });
+
+        expect(res.status).toBe(403);
+        expect(getRefreshCookie(res)).toBeNull();
+    });
+
+    test('đăng nhập không có Origin → 403', async () => {
+        const res = await request(app).post('/api/auth/login')
+            .send({ email: user.email, password: user.password });
+
+        expect(res.status).toBe(403);
+        expect(getRefreshCookie(res)).toBeNull();
+    });
+
+    test('đăng ký từ nguồn lạ → 403, không tạo tài khoản', async () => {
+        const res = await request(app)
+            .post('/api/auth/register')
+            .set('Origin', 'https://evil.example')
+            .type('form')
+            .send({ email: 'kexau@test.vn', password: 'matkhau123', fullName: 'Kẻ Xấu' });
+        const { rows } = await pool.query('SELECT 1 FROM users WHERE email = $1', ['kexau@test.vn']);
+
+        expect(res.status).toBe(403);
+        expect(getRefreshCookie(res)).toBeNull();
+        expect(rows).toHaveLength(0);
+    });
+
+    test('đăng nhập / đăng ký từ giao diện được phép vẫn chạy bình thường', async () => {
+        const login = await request(app).post('/api/auth/login').set('Origin', ORIGIN)
+            .send({ email: user.email, password: user.password });
+        const register = await request(app).post('/api/auth/register').set('Origin', ORIGIN)
+            .send({ email: 'moi@test.vn', password: 'matkhau123', fullName: 'Người Mới' });
+
+        expect(login.status).toBe(200);
+        expect(register.status).toBe(201);
+        expect(getRefreshCookie(register)).toBeTruthy();
+    });
+
     test('CORS cho phép giao diện chính thức gửi kèm cookie, không cho nguồn lạ', async () => {
         const allowed = await request(app)
             .options('/api/auth/refresh')

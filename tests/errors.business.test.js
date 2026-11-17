@@ -15,7 +15,7 @@ beforeEach(async () => {
 });
 
 async function login(user) {
-    const res = await request(app).post('/api/auth/login').send({ email: user.email, password: user.password });
+    const res = await request(app).post('/api/auth/login').set('Origin', 'http://localhost:5173').send({ email: user.email, password: user.password });
     return { Authorization: `Bearer ${res.body.token}` };
 }
 
@@ -42,7 +42,7 @@ describe('Lỗi nghiệp vụ giữ nguyên mã và thông báo', () => {
         await createUser({ email: 'trung@test.vn' });
 
         const res = await request(app)
-            .post('/api/auth/register')
+            .post('/api/auth/register').set('Origin', 'http://localhost:5173')
             .send({ email: 'trung@test.vn', password: 'matkhau123', fullName: 'Nguoi Dung' });
 
         expect(res.status).toBe(400);

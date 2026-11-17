@@ -20,12 +20,12 @@ beforeEach(async () => {
 });
 
 function register(email) {
-    return request(app).post('/api/auth/register')
+    return request(app).post('/api/auth/register').set('Origin', 'http://localhost:5173')
         .send({ email, password: 'matkhau123', fullName: 'Khach Hang' });
 }
 
 function login(email, password = 'matkhau123') {
-    return request(app).post('/api/auth/login').send({ email, password });
+    return request(app).post('/api/auth/login').set('Origin', 'http://localhost:5173').send({ email, password });
 }
 
 // Dữ liệu cũ (trước bản sửa) có thể còn email viết hoa trong DB

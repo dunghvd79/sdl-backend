@@ -67,7 +67,7 @@ describe('US1 (khách): dữ liệu sai bị từ chối', () => {
     });
 
     test('đăng nhập với email không phải chuỗi → 400 (không phải 500)', async () => {
-        const res = await request(app).post('/api/auth/login').send({ email: { a: 1 }, password: 'x' });
+        const res = await request(app).post('/api/auth/login').set('Origin', 'http://localhost:5173').send({ email: { a: 1 }, password: 'x' });
 
         expect400(res, 'Email');
     });

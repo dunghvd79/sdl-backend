@@ -29,7 +29,7 @@ afterEach(() => {
 
 async function loginAs(role = 'CUSTOMER', email = `${role.toLowerCase()}@test.vn`) {
     const user = await createUser({ email, role });
-    const res = await request(app).post('/api/auth/login').send({ email: user.email, password: user.password });
+    const res = await request(app).post('/api/auth/login').set('Origin', 'http://localhost:5173').send({ email: user.email, password: user.password });
     return { Authorization: `Bearer ${res.body.token}` };
 }
 
@@ -93,7 +93,7 @@ describe('US1 (bổ sung, phát hiện ở spec 003): bookController không lộ
 describe('US3: JSON hỏng, đường dẫn sai, trùng dữ liệu', () => {
     test('nội dung JSON sai cú pháp → 400 tiếng Việt', async () => {
         const res = await request(app)
-            .post('/api/auth/login')
+            .post('/api/auth/login').set('Origin', 'http://localhost:5173')
             .set('Content-Type', 'application/json')
             .send('{"email": "a@test.vn", ');
 

@@ -53,7 +53,7 @@ describe('Kết quả thanh toán VNPay giả mạo', () => {
         );
 
         const login = await request(app)
-            .post('/api/auth/login')
+            .post('/api/auth/login').set('Origin', 'http://localhost:5173')
             .send({ email: customer.email, password: customer.password });
         const auth = { Authorization: `Bearer ${login.body.token}` };
         await request(app).post('/api/cart/add').set(auth).send({ bookId, quantity: 1 }).expect(200);

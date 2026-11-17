@@ -39,7 +39,7 @@ async function createPendingOnlineOrder() {
     );
 
     const login = await request(app)
-        .post('/api/auth/login')
+        .post('/api/auth/login').set('Origin', 'http://localhost:5173')
         .send({ email: customer.email, password: customer.password });
     const auth = { Authorization: `Bearer ${login.body.token}` };
 

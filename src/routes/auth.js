@@ -10,8 +10,10 @@ const rl = require('../middleware/rateLimits');
 const router = express.Router();
 
 // Các API Public (Không cần đăng nhập)
-router.post('/register', rl.registerLimiter, validate({ body: schemas.auth.register }), authController.register);
-router.post('/login', ...rl.loginLimiters, validate({ body: schemas.auth.login }), authController.login);
+// Đăng ký / đăng nhập set cookie sdl_rt → kiểm tra Origin chống login CSRF (B68): trang lạ dùng
+// <form method=POST> đăng nhập trình duyệt nạn nhân vào tài khoản kẻ xấu
+router.post('/register', requireAllowedOrigin, rl.registerLimiter, validate({ body: schemas.auth.register }), authController.register);
+router.post('/login', requireAllowedOrigin, ...rl.loginLimiters, validate({ body: schemas.auth.login }), authController.login);
 router.post('/forgot-password', ...rl.forgotPasswordLimiters, validate({ body: schemas.auth.forgotPassword }), authController.forgotPassword);
 router.post('/reset-password', rl.resetPasswordLimiter, validate({ body: schemas.auth.resetPassword }), authController.resetPassword);
 

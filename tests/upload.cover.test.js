@@ -23,7 +23,7 @@ afterAll(async () => {
 
 async function loginAs(role) {
     const user = await createUser({ email: `${role.toLowerCase()}@test.vn`, role });
-    const res = await request(app).post('/api/auth/login').send({ email: user.email, password: user.password });
+    const res = await request(app).post('/api/auth/login').set('Origin', 'http://localhost:5173').send({ email: user.email, password: user.password });
     return { Authorization: `Bearer ${res.body.token}` };
 }
 
