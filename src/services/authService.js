@@ -43,7 +43,8 @@ class AuthService {
         // 3. Cấp phiên cho thiết bị này
         const { accessToken, refreshToken } = await this.issueSession(user, meta);
 
-        return { user, accessToken, refreshToken };
+        // Cùng dạng user với đăng nhập: giao diện dùng thẳng response này, không gọi thêm /auth/login (B57)
+        return { user: publicUser(user), accessToken, refreshToken };
     }
 
     // Gia hạn phiên: xoay vòng refresh token, cấp access token mới với role hiện tại (data-model.md)
