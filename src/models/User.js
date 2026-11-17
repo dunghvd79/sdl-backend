@@ -78,18 +78,11 @@ class User {
     // Tìm user theo ID
     static async findById(id) {
         // has_password (spec 005): giao diện ẩn form đổi mật khẩu cho tài khoản chỉ dùng Google; không trả hash
-        const query = `SELECT id, email, full_name, phone, address, role, is_active, session_id, created_at,
+        const query = `SELECT id, email, full_name, phone, address, role, is_active, created_at,
                               (password_hash IS NOT NULL) AS has_password
                        FROM users WHERE id = $1`;
         const result = await pool.query(query, [id]);
         return result.rows[0] || null;
-    }
-
-    // Cập nhật session_id của user
-    static async updateSessionId(userId, sessionId) {
-        const query = 'UPDATE users SET session_id = $1 WHERE id = $2 RETURNING id, session_id';
-        const result = await pool.query(query, [sessionId, userId]);
-        return result.rows[0];
     }
 
     // Cập nhật thông tin cá nhân mở rộng (Họ tên, SĐT, Địa chỉ)

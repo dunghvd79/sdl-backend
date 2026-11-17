@@ -67,6 +67,8 @@ describe('US3: tài khoản chỉ dùng Google với chức năng mật khẩu',
         expect(google.body.data.has_password).toBe(false);
         expect(google.body.data).not.toHaveProperty('password_hash');
         expect(google.body.data).not.toHaveProperty('google_sub');
+        // Cột cũ của cơ chế một phiên trước spec 002 — không còn dùng, không trả ra ngoài
+        expect(google.body.data).not.toHaveProperty('session_id');
 
         const owner = await createUser({ email: 'matkhau@test.vn', password: 'matkhau123' });
         const login = await passwordLogin(owner.email, 'matkhau123').expect(200);
