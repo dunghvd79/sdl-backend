@@ -55,7 +55,7 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | B37 | ⚪ | Tham số đường dẫn (`:id`, `:userId`...) chưa có lược đồ; đang dựa vào giải mã hashId/parseInt trong controller | Thêm `validate({ params })` nếu cần |
 | B28 | 🟡 | Mọi cột thời gian dùng `TIMESTAMP` **không múi giờ**; `pg` đọc theo múi giờ của Node. Postgres local/Neon chạy UTC, máy dev chạy +7 → so sánh thời gian bằng `Date` của Node lệch 7 giờ (đã gặp ở refresh token, sửa bằng so sánh trong SQL). Production hiện đúng vì Render cũng UTC | Rà các chỗ so sánh thời gian ở Node; cân nhắc chuyển sang `TIMESTAMPTZ` |
 | B69 | ⚪ | Khung transaction: `ROLLBACK` trong `catch` lỗi (kết nối đứt) thì che mất lỗi gốc; `client.release()` không truyền lỗi nên kết nối hỏng quay lại pool | Phát hiện 18/11/2026 khi soạn bài học transaction. Sửa: bọc `ROLLBACK` trong try/catch riêng, `release(err)` khi lỗi kết nối; cân nhắc helper `withTransaction` dùng chung |
-| B70 | ⚪ | Bảng `inventory` không có `CHECK` (`available_qty >= 0`, `reserved_qty >= 0`, `reserved_qty <= available_qty`) → luật không bán vượt chỉ do code giữ | Phát hiện 18/11/2026. Kiểm dữ liệu production trước khi thêm ràng buộc (migration idempotent) |
+| B71 | ⚪ | Test chập chờn: `tests/auth.google.test.js:208` ("email đã liên kết với tài khoản Google khác → 409", `userCount()` khác 1) lỗi 1 lần khi chạy cả bộ 18/11/2026; chạy riêng 3 lần và chạy lại cả bộ đều qua | Theo dõi; nếu lặp lại thì tìm request/khoá còn chạy dở từ test trước |
 | B25 | ⚪ | Script kiểm thử chạy tay cũ `src/utils/test_*.js`, `scratch/test_*.js` không thuộc bộ test Jest | Xoá hoặc chuyển thành test Jest |
 | B40 | ⚪ | 10 cảnh báo ESLint còn lại sau khi thêm `eslint.config.js`: `no-unused-vars` (paymentController.js, Inventory.js, paymentService.js), `no-useless-escape` (authController.js, bookController.js — đã hạ xuống "warn" để không churn regex), `eslint-disable` thừa (errorHandler.js:12) | Dọn khi tiện; đều là code cũ, không ảnh hưởng chạy. Phát hiện khi thêm ESLint 15/11/2026 |
 
@@ -98,3 +98,5 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | Chính sách mật khẩu yếu (6 ký tự, chữ + số) — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |
 | CORS mở cho mọi origin (`cors()`); auth bằng cookie bắt buộc phải giới hạn origin + `credentials` — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |
 | Với access token không tra DB: khoá tài khoản / đổi role có hiệu lực chậm tối đa bằng tuổi thọ access token — **đã quyết định 11/11/2026: chấp nhận trễ** — spec 002 | `3a9c161`, `43212da`, frontend `949a033` |
+| Pool `pg` không có `pool.on('error')`: kết nối rảnh bị DB cắt (Neon tạm dừng khi vắng khách) làm sập cả server (phát hiện khi xét B69) | `0a01e4a` |
+| B70 Bảng `inventory` thiếu `CHECK` → thêm `inventory_qty_check` (không âm, giữ chỗ ≤ tồn kho) | `0a01e4a` |
