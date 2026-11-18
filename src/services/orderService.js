@@ -10,6 +10,7 @@ const AppError = require('../utils/AppError');
 const Payment = require('../models/Payment');
 const crypto = require('crypto');
 const { ORDER_STATUS_LABELS, isValidStatus, canTransition } = require('../utils/orderStatus');
+const { sortByBookId } = require('../utils/lockOrder');
 
 class OrderService {
     // Biến Giỏ hàng thành Đơn hàng
@@ -121,7 +122,8 @@ class OrderService {
             );
 
             // 5. Chép từng món từ Giỏ hàng sang Hóa đơn (Vào bảng order_items) - sử dụng client
-            for (const item of itemsToOrder) {
+            // Giữ chỗ (khoá dòng kho) theo book_id tăng dần: thứ tự món trong giỏ không cố định → chống deadlock (B72)
+            for (const item of sortByBookId(itemsToOrder)) {
                 await Order.addItem(client, order.id, item.bookId, item.quantity, item.priceAtAdd);
                 // Giữ chỗ sách trong kho thực tế khi đơn hàng được đặt (trạng thái PENDING)
                 await Inventory.hold(client, item.bookId, item.quantity);
@@ -164,7 +166,7 @@ class OrderService {
     // - Đơn đã trừ kho (CONFIRMED / PACKAGING): hoàn hàng về kho.
     // - Đã thu tiền online: payment SUCCESS → REFUND_PENDING (B42).
     static async _cancelInTransaction(client, order, currentStatus, { actorId, reason = null, actorLabel }) {
-        for (const item of order.items || []) {
+        for (const item of sortByBookId(order.items || [])) { // khoá kho theo book_id tăng dần (B72)
             if (currentStatus === 'PENDING') {
                 await Inventory.cancelReservation(client, item.bookId, item.quantity, `${actorLabel} hủy đơn hàng #${order.id}`, actorId);
             } else {
@@ -253,7 +255,7 @@ class OrderService {
             } else {
                 // Xác nhận đơn chờ: trừ kho thật. Các bước tiến/lùi khác không đổi kho (đã trừ lúc xác nhận).
                 if (oldStatus === 'PENDING' && newStatus === 'CONFIRMED') {
-                    for (const item of order.items || []) {
+                    for (const item of sortByBookId(order.items || [])) { // B72
                         await Inventory.commit(client, item.bookId, item.quantity, `Xác nhận đơn hàng #${orderId}`, adminId);
                     }
                 }
@@ -322,6 +324,7 @@ class OrderService {
                 WHERE payment_method = 'ONLINE' 
                   AND status = 'PENDING' 
                   AND created_at < CURRENT_TIMESTAMP - INTERVAL '15 minutes'
+                ORDER BY id
                 FOR UPDATE
             `;
             const expiredRes = await client.query(expiredQuery);
@@ -334,22 +337,22 @@ class OrderService {
 
             const expiredOrderIds = expiredOrders.map(o => o.id);
 
-            // 2. Với mỗi đơn hàng hết hạn, giải phóng số lượng giữ chỗ trong kho
-            for (const orderId of expiredOrderIds) {
-                // Lấy các mặt hàng trong đơn
-                const itemsQuery = 'SELECT book_id, quantity FROM order_items WHERE order_id = $1';
-                const itemsRes = await client.query(itemsQuery, [orderId]);
-                for (const item of itemsRes.rows) {
-                    await Inventory.cancelReservation(client, item.book_id, item.quantity, `Hủy đơn hàng hết hạn thanh toán #${orderId}`, null);
-                }
-
-                // Cập nhật trạng thái giao dịch payments tương ứng thành FAILED
-                await client.query(`
-                    UPDATE payments 
-                    SET status = 'FAILED'
-                    WHERE order_id = $1 AND status = 'PENDING'
-                `, [orderId]);
+            // 2. Nhả giữ chỗ của MỌI đơn hết hạn trong một vòng, theo book_id tăng dần (B72): duyệt từng đơn thì
+            //    transaction này khoá kho theo thứ tự đơn, có thể ngược với một đơn đang đặt → deadlock
+            const { rows: items } = await client.query(
+                'SELECT order_id, book_id, quantity FROM order_items WHERE order_id = ANY($1) ORDER BY book_id, order_id',
+                [expiredOrderIds]
+            );
+            for (const item of items) {
+                await Inventory.cancelReservation(client, item.book_id, item.quantity, `Hủy đơn hàng hết hạn thanh toán #${item.order_id}`, null);
             }
+
+            // Cập nhật trạng thái giao dịch payments tương ứng thành FAILED
+            await client.query(`
+                UPDATE payments
+                SET status = 'FAILED'
+                WHERE order_id = ANY($1) AND status = 'PENDING'
+            `, [expiredOrderIds]);
 
             // 3. Cập nhật trạng thái của các đơn hàng này thành CANCELLED
             const updateOrdersQuery = `

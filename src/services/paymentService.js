@@ -43,7 +43,8 @@ async function confirmPaidOrder(orderId, paymentId, transactionId, stockOutReaso
         );
 
         const { rows: items } = await client.query(
-            'SELECT book_id, quantity FROM order_items WHERE order_id = $1',
+            // Trừ kho (khoá dòng) theo book_id tăng dần — chống deadlock với đơn khác (B72)
+            'SELECT book_id, quantity FROM order_items WHERE order_id = $1 ORDER BY book_id',
             [orderId]
         );
         for (const item of items) {
