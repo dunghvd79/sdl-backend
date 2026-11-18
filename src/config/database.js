@@ -10,6 +10,13 @@ const pool = new Pool({
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
+// Kết nối đang rảnh bị DB cắt (Neon tạm dừng khi vắng khách, mạng chập...) → pg phát 'error' trên pool.
+// Không có listener thì Node coi là lỗi không ai bắt và tắt cả server. Pool đã tự bỏ kết nối hỏng,
+// lần sau cần sẽ mở kết nối mới — chỉ cần ghi log.
+pool.on('error', (err) => {
+    console.error('[db] Kết nối rảnh trong pool bị lỗi, đã loại bỏ:', err.message);
+});
+
 // Test connection + migration tự động khi khởi động.
 // Bỏ qua khi chạy Jest: DB test đã được nạp schema sẵn (tests/setup/globalSetup.js),
 // và migration chạy song song sẽ giành DB với test (ví dụ setval lại sequence).
@@ -456,6 +463,25 @@ if (process.env.NODE_ENV !== 'test') pool.query('SELECT NOW()', async (err, res)
             console.log('✅ Migration: Đã kiểm tra/thêm google_sub, email_verified_at; password_hash cho phép NULL.');
         } catch (googleErr) {
             console.error('❌ Migration đăng nhập Google gặp lỗi:', googleErr.message);
+        }
+
+        // B70: luật kho ở tầng DB — số lượng không âm, giữ chỗ không vượt tồn kho (available_qty là hàng
+        // đang có trong kho, GỒM phần giữ chỗ). Nếu dữ liệu cũ vi phạm thì ALTER thất bại, không đổi gì:
+        // chỉ ghi log (server vẫn chạy), sửa dữ liệu tay rồi deploy lại.
+        try {
+            await pool.query(`
+                DO $$ BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inventory_qty_check') THEN
+                        ALTER TABLE inventory ADD CONSTRAINT inventory_qty_check CHECK (
+                            available_qty >= 0 AND reserved_qty >= 0 AND sold_qty >= 0
+                            AND reserved_qty <= available_qty
+                        );
+                    END IF;
+                END $$;
+            `);
+            console.log('✅ Migration: Đã kiểm tra/thêm ràng buộc inventory_qty_check.');
+        } catch (invErr) {
+            console.error('❌ Migration inventory_qty_check gặp lỗi (dữ liệu kho cũ vi phạm?):', invErr.message);
         }
     }
 });

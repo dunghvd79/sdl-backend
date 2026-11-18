@@ -385,7 +385,8 @@ CREATE TABLE public.inventory (
     available_qty integer DEFAULT 0,
     reserved_qty integer DEFAULT 0,
     sold_qty integer DEFAULT 0,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT inventory_qty_check CHECK (((available_qty >= 0) AND (reserved_qty >= 0) AND (sold_qty >= 0) AND (reserved_qty <= available_qty)))
 );
 
 
