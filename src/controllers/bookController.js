@@ -65,6 +65,10 @@ function validateBookInput(data) {
 }
 
 function handleDatabaseError(err) {
+    // Mã danh mục không tồn tại (B77: cả lần tạo / sửa đã ROLLBACK)
+    if (err.code === '23503' && err.constraint === 'book_categories_category_id_fkey') {
+        return 'Danh mục không tồn tại!';
+    }
     const msg = err.message || '';
     if (msg.includes('numeric field overflow')) {
         return 'Giá bán vượt quá giới hạn hệ thống (Tối đa 99.999.999,99 đ)!';
@@ -140,15 +144,12 @@ class BookController {
                 return res.status(400).json({ error: validationError });
             }
 
-            // Tạo sách và truyền mảng ID danh mục cùng ảnh chi tiết phụ (nếu có)
+            // Tạo sách + danh mục + ảnh chi tiết phụ trong một transaction; service xoá cache sau COMMIT
             const book = await BookService.createBook(
                 { title, author, isbn, description, price: Number(price), cover_url, status: status || 'PUBLISHED', is_featured: !!is_featured, is_bestseller: !!is_bestseller, display_order: parseInt(display_order) || 0 },
                 categories,
                 images
             );
-
-            // Invalidate cache
-            await clearCachePattern('books:*');
 
             res.status(201).json({
                 message: 'Thêm sách thành công!',
@@ -203,54 +204,22 @@ class BookController {
                 return res.status(400).json({ error: validationError });
             }
 
-            const pool = require('../config/database');
-            const query = `
-                UPDATE books
-                SET title = $1, author = $2, isbn = $3, description = $4, price = $5, cover_url = $6, status = $7, is_featured = $8, is_bestseller = $9, display_order = $10
-                WHERE id = $11
-                RETURNING *
-            `;
-            const result = await pool.query(query, [title, author, isbn || null, description || null, Number(price), cover_url || null, status || 'PUBLISHED', !!is_featured, !!is_bestseller, parseInt(display_order) || 0, id]);
+            // B77: sách + danh mục + ảnh trong một transaction; cache xoá sau COMMIT và TRƯỚC khi trả response
+            const book = await BookService.updateBook(
+                id,
+                { title, author, isbn, description, price: Number(price), cover_url, status: status || 'PUBLISHED', is_featured: !!is_featured, is_bestseller: !!is_bestseller, display_order: parseInt(display_order) || 0 },
+                categories,
+                images
+            );
 
-            if (result.rowCount === 0) {
+            if (!book) {
                 return res.status(404).json({ error: 'Không tìm thấy cuốn sách này!' });
-            }
-
-            // Cập nhật thể loại
-            if (Array.isArray(categories)) {
-                // Xóa thể loại cũ
-                await pool.query('DELETE FROM book_categories WHERE book_id = $1', [id]);
-                // Thêm thể loại mới
-                for (const categoryId of categories) {
-                    await pool.query(
-                        'INSERT INTO book_categories (book_id, category_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-                        [id, categoryId]
-                    );
-                }
-            }
-
-            // Cập nhật ảnh chi tiết phụ
-            if (Array.isArray(images)) {
-                // Xóa ảnh cũ
-                await pool.query('DELETE FROM book_images WHERE book_id = $1', [id]);
-                // Thêm ảnh mới
-                for (const img of images) {
-                    if (img.image_url) {
-                        await pool.query(
-                            'INSERT INTO book_images (book_id, image_url, display_order) VALUES ($1, $2, $3)',
-                            [id, img.image_url, parseInt(img.display_order) || 0]
-                        );
-                    }
-                }
             }
 
             res.status(200).json({
                 message: 'Cập nhật sách thành công!',
-                data: result.rows[0] ? { ...result.rows[0], hashId: encodeBookId(result.rows[0].id) } : null
+                data: { ...book, hashId: encodeBookId(book.id) }
             });
-            
-            // Invalidate cache
-            await clearCachePattern('books:*');
         } catch (err) {
             const known = handleDatabaseError(err);
             if (known) return res.status(400).json({ error: known });

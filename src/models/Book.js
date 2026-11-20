@@ -1,8 +1,8 @@
 const pool = require('../config/database');
 
 class Book {
-    // 1. Thêm sách mới
-    static async create(bookData) {
+    // 1. Thêm sách mới. `executor`: client của transaction bên gọi (mặc định pool).
+    static async create(bookData, executor = pool) {
         const { title, author, isbn, description, price, cover_url, status = 'PUBLISHED', is_featured = false, is_bestseller = false, display_order = 0 } = bookData;
 
         const query = `
@@ -10,8 +10,47 @@ class Book {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `;
-        const result = await pool.query(query, [title, author, isbn, description, price, cover_url || null, status, is_featured, is_bestseller, display_order]);
+        const result = await executor.query(query, [title, author, isbn, description, price, cover_url || null, status, is_featured, is_bestseller, display_order]);
         return result.rows[0];
+    }
+
+    // Sửa thông tin sách; không có sách → null.
+    static async update(id, bookData, executor = pool) {
+        const { title, author, isbn, description, price, cover_url, status, is_featured, is_bestseller, display_order } = bookData;
+        const query = `
+            UPDATE books
+            SET title = $1, author = $2, isbn = $3, description = $4, price = $5, cover_url = $6, status = $7, is_featured = $8, is_bestseller = $9, display_order = $10
+            WHERE id = $11
+            RETURNING *
+        `;
+        const result = await executor.query(query, [title, author, isbn || null, description || null, price, cover_url || null, status, is_featured, is_bestseller, display_order, id]);
+        return result.rows[0] || null;
+    }
+
+    // Thay toàn bộ danh mục của sách (gọi trong transaction: mã danh mục sai → lỗi FK → ROLLBACK cả lần sửa).
+    static async replaceCategories(bookId, categoryIds, executor = pool) {
+        await executor.query('DELETE FROM book_categories WHERE book_id = $1', [bookId]);
+        for (const categoryId of categoryIds) {
+            await this.addCategory(bookId, categoryId, executor);
+        }
+    }
+
+    // Thêm ảnh chi tiết phụ (bỏ qua phần tử không có image_url).
+    static async addImages(bookId, images, executor = pool) {
+        for (const img of images) {
+            if (img.image_url) {
+                await executor.query(
+                    'INSERT INTO book_images (book_id, image_url, display_order) VALUES ($1, $2, $3)',
+                    [bookId, img.image_url, parseInt(img.display_order) || 0]
+                );
+            }
+        }
+    }
+
+    // Thay toàn bộ ảnh chi tiết phụ của sách.
+    static async replaceImages(bookId, images, executor = pool) {
+        await executor.query('DELETE FROM book_images WHERE book_id = $1', [bookId]);
+        await this.addImages(bookId, images, executor);
     }
 
     // Lấy chi tiết 1 cuốn sách theo ID
@@ -40,14 +79,14 @@ class Book {
     }
 
     // 2. Thêm danh mục cho sách (Lưu vào bảng trung gian N:M)
-    static async addCategory(bookId, categoryId) {
+    static async addCategory(bookId, categoryId, executor = pool) {
         const query = `
       INSERT INTO book_categories (book_id, category_id)
       VALUES ($1, $2)
       ON CONFLICT DO NOTHING -- Tránh lỗi nếu đã có sẵn
       RETURNING *
     `;
-        const result = await pool.query(query, [bookId, categoryId]);
+        const result = await executor.query(query, [bookId, categoryId]);
         return result.rows[0];
     }
 

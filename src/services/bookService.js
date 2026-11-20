@@ -1,35 +1,51 @@
 // ==========================================
 // FILE 1: src/services/bookService.js
 // ==========================================
+const pool = require('../config/database');
 const Book = require('../models/Book');
+const { invalidateBookCache } = require('../config/redis');
+
+// Chạy `work(client)` trong một transaction; xong COMMIT thì mới xoá cache sách (B77).
+// Lỗi giữa chừng (vd. mã danh mục không tồn tại) → ROLLBACK cả lần ghi, cache cũ vẫn khớp DB.
+async function inBookTransaction(work) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const result = await work(client);
+        await client.query('COMMIT');
+        await invalidateBookCache(); // sau COMMIT: trước đó request khác có thể ghi lại cache bằng bản cũ
+        return result;
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}
 
 class BookService {
-    // Thêm sách và nối với danh mục
+    // Thêm sách và nối với danh mục, ảnh chi tiết — một transaction
     static async createBook(bookData, categoryIds = [], images = []) {
-        // 1. Lưu thông tin sách vào bảng books
-        const book = await Book.create(bookData);
-
-        // 2. Nếu có gửi kèm danh sách ID danh mục, thì lưu vào bảng trung gian
-        if (categoryIds.length > 0) {
-            for (const categoryId of categoryIds) {
-                await Book.addCategory(book.id, categoryId);
+        return inBookTransaction(async (client) => {
+            const book = await Book.create(bookData, client);
+            for (const categoryId of categoryIds || []) {
+                await Book.addCategory(book.id, categoryId, client);
             }
-        }
+            if (Array.isArray(images)) await Book.addImages(book.id, images, client);
+            return book;
+        });
+    }
 
-        // 3. Nếu có gửi kèm ảnh chi tiết phụ, lưu vào bảng book_images
-        if (images && images.length > 0) {
-            const pool = require('../config/database');
-            for (const img of images) {
-                if (img.image_url) {
-                    await pool.query(
-                        'INSERT INTO book_images (book_id, image_url, display_order) VALUES ($1, $2, $3)',
-                        [book.id, img.image_url, parseInt(img.display_order) || 0]
-                    );
-                }
-            }
-        }
-
-        return book;
+    // Sửa sách; `categories` / `images` là mảng thì thay toàn bộ, không gửi thì giữ nguyên.
+    // Không có sách → null (không đổi gì).
+    static async updateBook(id, bookData, categories, images) {
+        return inBookTransaction(async (client) => {
+            const book = await Book.update(id, bookData, client);
+            if (!book) return null;
+            if (Array.isArray(categories)) await Book.replaceCategories(id, categories, client);
+            if (Array.isArray(images)) await Book.replaceImages(id, images, client);
+            return book;
+        });
     }
 
     // Lấy danh sách sách
@@ -44,6 +60,3 @@ class BookService {
 }
 
 module.exports = BookService;
-
-
-// ==========================================
