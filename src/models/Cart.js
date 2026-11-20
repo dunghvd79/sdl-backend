@@ -20,7 +20,7 @@ class Cart {
                   'author', b.author,
                   'price', b.price,
                   'cover_url', b.cover_url,
-                  'stock', COALESCE(inv.available_qty - inv.reserved_qty, 10)
+                  'stock', COALESCE(inv.available_qty - inv.reserved_qty, 0)
                 )
               )
             )

@@ -1,28 +1,30 @@
 const pool = require('../config/database');
 const AppError = require('../utils/AppError');
 
-class Inventory {
-    // Xem trạng thái kho của 1 cuốn sách (tự khởi tạo nếu chưa có)
-    static async getStatus(bookId) {
-        const query = 'SELECT * FROM inventory WHERE book_id = $1';
-        const result = await pool.query(query, [bookId]);
-        if (result.rows[0]) {
-            return result.rows[0];
-        }
+// B74: sách chưa có dòng kho = 0 cuốn (không còn tự tạo 10 cuốn "ảo")
+const EMPTY_STOCK = { available_qty: 0, reserved_qty: 0, sold_qty: 0 };
 
-        // Tự động tạo bản ghi kho mới nếu chưa có, mặc định có 10 cuốn
-        try {
-            const insertQuery = `
-                INSERT INTO inventory (book_id, available_qty, reserved_qty, sold_qty)
-                VALUES ($1, 10, 0, 0)
-                RETURNING *
-            `;
-            const insertResult = await pool.query(insertQuery, [bookId]);
-            return insertResult.rows[0];
-        } catch (err) {
-            console.error("Lỗi tự tạo tồn kho:", err);
-            return null;
-        }
+class Inventory {
+    // Xem trạng thái kho của 1 cuốn sách. Chưa có dòng kho → 0 cuốn; đường đọc không ghi gì vào DB.
+    static async getStatus(bookId) {
+        const result = await pool.query('SELECT * FROM inventory WHERE book_id = $1', [bookId]);
+        return result.rows[0] || { book_id: bookId, ...EMPTY_STOCK };
+    }
+
+    // Khoá dòng kho (FOR UPDATE) tới hết transaction của `executor`; chưa có dòng thì tạo dòng 0 cuốn rồi khoá.
+    // ON CONFLICT: hai transaction cùng tạo dòng cho một cuốn không lỗi 23505 — bên sau chờ rồi khoá dòng đã có.
+    static async lockRow(executor, bookId) {
+        const lockQuery = 'SELECT * FROM inventory WHERE book_id = $1 FOR UPDATE';
+        const { rows: [existing] } = await executor.query(lockQuery, [bookId]);
+        if (existing) return existing;
+
+        await executor.query(
+            `INSERT INTO inventory (book_id, available_qty, reserved_qty, sold_qty)
+             VALUES ($1, 0, 0, 0) ON CONFLICT (book_id) DO NOTHING`,
+            [bookId]
+        );
+        const { rows: [created] } = await executor.query(lockQuery, [bookId]);
+        return created;
     }
 
     // Kiểm tra xem còn đủ sách bán không
@@ -45,20 +47,7 @@ class Inventory {
             }
 
             // FOR UPDATE: Khóa dòng dữ liệu này lại, không cho ai khác sửa cho đến khi Giao dịch xong
-            const queryGet = 'SELECT * FROM inventory WHERE book_id = $1 FOR UPDATE';
-            const resultGet = await executor.query(queryGet, [bookId]);
-            let inventory = resultGet.rows[0];
-
-            if (!inventory) {
-                // Tự động tạo kho trong transaction nếu chưa có
-                const insertQuery = `
-                    INSERT INTO inventory (book_id, available_qty, reserved_qty, sold_qty)
-                    VALUES ($1, 10, 0, 0)
-                    RETURNING *
-                `;
-                const insertResult = await executor.query(insertQuery, [bookId]);
-                inventory = insertResult.rows[0];
-            }
+            const inventory = await this.lockRow(executor, bookId);
 
             const available = inventory.available_qty - inventory.reserved_qty;
             if (available < quantity) throw new AppError(`Kho chỉ còn ${available} cuốn`, 400);
@@ -92,15 +81,7 @@ class Inventory {
     // mode 'set'  : đặt thẳng `amount` (kiểm kê / giao diện cũ gửi availableQty).
     // Không cho tồn kho thấp hơn số đang giữ chỗ cho đơn chờ thanh toán.
     static async adjust(client, bookId, { mode, amount, type, reason, userId }) {
-        await client.query(
-            `INSERT INTO inventory (book_id, available_qty, reserved_qty, sold_qty)
-             VALUES ($1, 0, 0, 0) ON CONFLICT (book_id) DO NOTHING`,
-            [bookId]
-        );
-        const { rows: [inventory] } = await client.query(
-            'SELECT * FROM inventory WHERE book_id = $1 FOR UPDATE',
-            [bookId]
-        );
+        const inventory = await this.lockRow(client, bookId);
 
         const prevQty = inventory.available_qty;
         const newQty = mode === 'delta' ? prevQty + amount : amount;
@@ -157,21 +138,8 @@ class Inventory {
                 await executor.query('BEGIN');
             }
 
-            // Lock dòng để đảm bảo đồng bộ
-            const getQuery = 'SELECT * FROM inventory WHERE book_id = $1 FOR UPDATE';
-            const getResult = await executor.query(getQuery, [bookId]);
-            let inventory = getResult.rows[0];
-
-            if (!inventory) {
-                // Tự tạo bản ghi kho nếu chưa có
-                const insertQuery = `
-                    INSERT INTO inventory (book_id, available_qty, reserved_qty, sold_qty)
-                    VALUES ($1, 10, 0, 0)
-                    RETURNING *
-                `;
-                const insertResult = await executor.query(insertQuery, [bookId]);
-                inventory = insertResult.rows[0];
-            }
+            // Lock dòng để đảm bảo đồng bộ (chưa có dòng kho → dòng 0 cuốn, B74)
+            const inventory = await this.lockRow(executor, bookId);
 
             const prevQty = inventory.available_qty;
             const newAvailableQty = Math.max(0, inventory.available_qty - quantity);

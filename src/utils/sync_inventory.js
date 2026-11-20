@@ -62,7 +62,7 @@ async function syncInventory() {
                     // Nếu sách chưa có trong bảng inventory, tự động tạo mới
                     const insertQuery = `
                         INSERT INTO inventory (book_id, available_qty, reserved_qty, sold_qty)
-                        VALUES ($1, 10, 0, 0)
+                        VALUES ($1, 0, 0, 0) -- B74: chưa có dòng kho = 0 cuốn
                         RETURNING *
                     `;
                     const insertResult = await client.query(insertQuery, [bookId]);
