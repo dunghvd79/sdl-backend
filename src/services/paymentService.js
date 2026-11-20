@@ -2,7 +2,6 @@ const pool = require('../config/database');
 const Payment = require('../models/Payment');
 const Cart = require('../models/Cart');
 const Inventory = require('../models/Inventory');
-const { invalidateBookCache } = require('../config/redis');
 const AppError = require('../utils/AppError');
 // Ghi nhận một đơn đã được cổng thanh toán báo PAID. Idempotent: return URL và webhook có thể
 // cùng gọi, gọi lặp lại hoặc đồng thời, nhưng kho chỉ bị trừ đúng một lần.
@@ -57,7 +56,6 @@ async function confirmPaidOrder(orderId, paymentId, transactionId, stockOutReaso
         }
 
         await client.query('COMMIT');
-        await invalidateBookCache(); // đã trừ kho thật
         return { success: true, orderId };
     } catch (err) {
         await client.query('ROLLBACK');

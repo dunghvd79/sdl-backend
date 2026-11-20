@@ -4,7 +4,6 @@ const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const pool = require('../config/database');
 const Coupon = require('../models/Coupon');
-const { invalidateBookCache } = require('../config/redis');
 const Inventory = require('../models/Inventory');
 const AppError = require('../utils/AppError');
 const Payment = require('../models/Payment');
@@ -136,7 +135,6 @@ class OrderService {
             }
 
             await client.query('COMMIT');
-            await invalidateBookCache(); // giữ hàng làm đổi tồn kho đang hiển thị
             return order;
         } catch (error) {
             await client.query('ROLLBACK');
@@ -203,7 +201,6 @@ class OrderService {
             });
 
             await client.query('COMMIT');
-            await invalidateBookCache(); // trả hàng về kho
             return cancelled;
         } catch (error) {
             await client.query('ROLLBACK');
@@ -274,7 +271,6 @@ class OrderService {
             );
 
             await client.query('COMMIT');
-            await invalidateBookCache(); // xác nhận / huỷ làm đổi tồn kho
             return { order: updated, changed: true };
         } catch (error) {
             await client.query('ROLLBACK');
@@ -365,7 +361,6 @@ class OrderService {
             await client.query(updateOrdersQuery, [expiredOrderIds]);
 
             await client.query('COMMIT');
-            await invalidateBookCache(); // nhả hàng giữ chỗ của đơn quá hạn
             return expiredOrderIds.length;
         } catch (err) {
             await client.query('ROLLBACK');

@@ -11,6 +11,17 @@ class Inventory {
         return result.rows[0] || { book_id: bookId, ...EMPTY_STOCK };
     }
 
+    // Tồn kho hiển thị của nhiều sách (B78: không nằm trong cache sách, đọc mới mỗi lần — truy vấn theo khoá chính).
+    // Trả Map book_id → { available_qty: còn bán được (= tồn - giữ chỗ), reserved_qty }; sách chưa có dòng kho thì không có trong Map.
+    static async getDisplayStock(bookIds) {
+        const { rows } = await pool.query(
+            `SELECT book_id, available_qty - reserved_qty AS available_qty, reserved_qty
+             FROM inventory WHERE book_id = ANY($1::int[])`,
+            [bookIds]
+        );
+        return new Map(rows.map(r => [r.book_id, r]));
+    }
+
     // Khoá dòng kho (FOR UPDATE) tới hết transaction của `executor`; chưa có dòng thì tạo dòng 0 cuốn rồi khoá.
     // ON CONFLICT: hai transaction cùng tạo dòng cho một cuốn không lỗi 23505 — bên sau chờ rồi khoá dòng đã có.
     static async lockRow(executor, bookId) {

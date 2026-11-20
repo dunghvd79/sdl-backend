@@ -5,6 +5,23 @@ const BookService = require('../services/bookService');
 const { encodeBookId } = require('../utils/hashids');
 const { getCache, setCache, clearCachePattern } = require('../config/redis');
 const { staffAccess, sendTokenExpired } = require('../middleware/auth');
+const Inventory = require('../models/Inventory');
+
+// B78: cache sách KHÔNG chứa tồn kho — tồn kho đổi theo từng đơn hàng, nếu nằm trong cache thì mỗi đơn phải xoá toàn
+// bộ `books:*`. Ghi cache thì bỏ hai trường tồn kho; đọc từ cache thì ghép tồn kho mới từ bảng inventory.
+function withoutStock(book) {
+    const { available_qty, reserved_qty, ...rest } = book; // eslint-disable-line no-unused-vars
+    return rest;
+}
+
+async function withLiveStock(books) {
+    if (books.length === 0) return books;
+    const stock = await Inventory.getDisplayStock(books.map(b => b.id));
+    return books.map(b => {
+        const s = stock.get(b.id);
+        return { ...b, available_qty: s ? s.available_qty : 0, reserved_qty: s ? s.reserved_qty : 0 };
+    });
+}
 
 function validateBookInput(data) {
     const { title, author, isbn, description, price, status } = data;
@@ -115,7 +132,7 @@ class BookController {
             const cacheKey = `books:all:${limit}_${page}_${search}_${categoryId}_${sortBy}_${maxPrice}_${adminMode}_${isFeatured}`;
             const cachedData = await getCache(cacheKey);
             if (cachedData) {
-                return res.status(200).json(cachedData);
+                return res.status(200).json({ ...cachedData, data: await withLiveStock(cachedData.data) });
             }
 
             const books = await BookService.getBooks({ limit, offset, search, categoryId, sortBy, maxPrice, adminMode, isFeatured });
@@ -126,7 +143,7 @@ class BookController {
                 pagination: { page, limit, total_in_page: books.length }
             };
 
-            await setCache(cacheKey, responseData, 3600);
+            await setCache(cacheKey, { ...responseData, data: responseData.data.map(withoutStock) }, 3600);
 
             res.status(200).json(responseData);
         } catch (err) {
@@ -168,13 +185,15 @@ class BookController {
             const { id } = req.params;
             const cacheKey = `books:detail:${id}`;
             let responseData = await getCache(cacheKey);
-            if (!responseData) {
+            if (responseData) {
+                [responseData] = await withLiveStock([responseData]);
+            } else {
                 const book = await BookService.getBookDetails(id);
                 if (!book) {
                     return res.status(404).json({ error: 'Không tìm thấy cuốn sách này' });
                 }
                 responseData = { ...book, hashId: encodeBookId(book.id) };
-                await setCache(cacheKey, responseData, 3600);
+                await setCache(cacheKey, withoutStock(responseData), 3600);
             }
 
             // Sách nháp / đã ẩn: chỉ nhân viên xem được (B52). Kiểm SAU khi đọc cache, vì cache dùng chung cho mọi

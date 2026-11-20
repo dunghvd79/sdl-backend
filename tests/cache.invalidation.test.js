@@ -1,5 +1,6 @@
-// G1/G3/G4 (đối chiếu CV): cache sách và danh mục phải được xoá khi dữ liệu thay đổi, kể cả tồn kho đổi
-// do đặt hàng / thanh toán / huỷ đơn; xoá theo mẫu bằng SCAN (không dùng KEYS chặn Redis).
+// G1/G3/G4 (đối chiếu CV): danh sách / chi tiết sách luôn trả tồn kho mới khi đặt hàng / thanh toán / huỷ đơn;
+// cache danh mục được xoá khi dữ liệu đổi; xoá theo mẫu bằng SCAN (không dùng KEYS chặn Redis).
+// Từ B78, tồn kho không nằm trong cache sách nên G1 đúng mà không cần xoá cache khi có đơn hàng.
 jest.mock('@payos/node', () => {
     const mockPayos = { paymentRequests: { create: jest.fn(), get: jest.fn() }, webhooks: { verify: jest.fn() } };
     return { PayOS: jest.fn(() => mockPayos), mockPayos };
@@ -114,6 +115,64 @@ describe('G1: tồn kho đổi thì cache danh sách sách được làm mới',
             .send({ status: 'CANCELLED' }).expect(200);
 
         expect(await listedStock(bookId)).toEqual({ available: 10, reserved: 0 });
+    });
+});
+
+// B78: tồn kho KHÔNG nằm trong cache sách (đọc trực tiếp từ bảng inventory mỗi lần) → đơn hàng không phải xoá cache
+async function cachedBookKeys() {
+    const keys = [];
+    for await (const batch of redis.client.scanIterator({ MATCH: 'books:*', COUNT: 100 })) {
+        keys.push(...(Array.isArray(batch) ? batch : [batch]));
+    }
+    return keys;
+}
+
+describe('B78: tồn kho tách khỏi cache sách', () => {
+    test('cache danh sách và chi tiết không chứa số tồn kho', async () => {
+        const bookId = await createBook({ stock: 10 });
+        await request(app).get('/api/books?limit=50').expect(200);
+        await request(app).get(`/api/books/${bookId}`).expect(200);
+
+        const keys = await cachedBookKeys();
+        const list = JSON.parse(await redis.client.get(keys.find(k => k.startsWith('books:all:'))));
+        const detail = JSON.parse(await redis.client.get(`books:detail:${bookId}`));
+
+        expect(list.data[0]).not.toHaveProperty('available_qty');
+        expect(list.data[0]).not.toHaveProperty('reserved_qty');
+        expect(detail).not.toHaveProperty('available_qty');
+        expect(detail).not.toHaveProperty('reserved_qty');
+    });
+
+    test('đặt hàng không xoá cache sách mà tồn kho trả về vẫn mới (danh sách và chi tiết)', async () => {
+        const bookId = await createBook({ stock: 10 });
+        await listedStock(bookId); // ghi cache danh sách
+        await request(app).get(`/api/books/${bookId}`).expect(200); // ghi cache chi tiết
+        const keysBefore = (await cachedBookKeys()).sort();
+
+        await placeOrder(bookId, 'COD');
+
+        expect((await cachedBookKeys()).sort()).toEqual(keysBefore); // cache còn nguyên
+        expect(await listedStock(bookId)).toEqual({ available: 8, reserved: 2 });
+        const detail = await request(app).get(`/api/books/${bookId}`).expect(200);
+        expect(detail.body.data).toMatchObject({ available_qty: 8, reserved_qty: 2 });
+    });
+
+    test('admin nhập kho → danh sách thấy tồn kho mới', async () => {
+        const bookId = await createBook({ stock: 10 });
+        expect(await listedStock(bookId)).toEqual({ available: 10, reserved: 0 }); // ghi cache
+
+        await request(app).put(`/api/inventory/${bookId}`).set(admin.auth)
+            .send({ quantity: 5, type: 'STOCK_IN' }).expect(200);
+
+        expect(await listedStock(bookId)).toEqual({ available: 15, reserved: 0 });
+    });
+
+    test('sách chưa có dòng kho → tồn kho 0 cả khi đọc từ cache', async () => {
+        const bookId = await createBook({ stock: 10 });
+        await pool.query('DELETE FROM inventory WHERE book_id = $1', [bookId]);
+        await listedStock(bookId); // ghi cache
+
+        expect(await listedStock(bookId)).toEqual({ available: 0, reserved: 0 });
     });
 });
 

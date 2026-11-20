@@ -121,8 +121,9 @@ async function clearCachePattern(pattern) {
     }
 }
 
-// Xoá cache danh sách/chi tiết sách (chúng kèm số tồn kho). Gọi SAU khi transaction đổi tồn kho đã COMMIT:
-// gọi trước COMMIT thì một request khác có thể kịp ghi lại cache bằng dữ liệu cũ.
+// Xoá cache danh sách/chi tiết sách khi dữ liệu sách đổi (tên, giá, danh mục, ảnh...). Tồn kho KHÔNG nằm trong cache
+// (B78, ghép mới trong bookController) nên đơn hàng / chỉnh kho không cần gọi hàm này.
+// Gọi SAU COMMIT: gọi trước COMMIT thì một request khác có thể kịp ghi lại cache bằng dữ liệu cũ.
 function invalidateBookCache() {
     return clearCachePattern('books:*');
 }
