@@ -139,7 +139,8 @@ class EmailService {
                 }
             });
 
-            console.log(`✉️ Email khôi phục mật khẩu đã được gửi qua Resend tới: ${toEmail}`);
+            // Không in email người nhận (B82); mã thư tra được trong trang quản trị Resend
+            console.log(`✉️ Email khôi phục mật khẩu đã được gửi qua Resend. Mã thư: ${response.data?.id}`);
             return response.data;
         } catch (error) {
             console.error('❌ Gửi email qua Resend gặp lỗi:', error.response?.data || error.message);
