@@ -23,90 +23,10 @@ async function withLiveStock(books) {
     });
 }
 
-function validateBookInput(data) {
-    const { title, author, isbn, description, price, status } = data;
-
-    if (!title || typeof title !== 'string' || !title.trim()) {
-        return 'Tên sách không được để trống!';
-    }
-    if (title.length > 255) {
-        return 'Tên sách quá dài! Vui lòng nhập tối đa 255 ký tự.';
-    }
-
-    if (!author || typeof author !== 'string' || !author.trim()) {
-        return 'Tác giả không được để trống!';
-    }
-    if (author.length > 255) {
-        return 'Tên tác giả quá dài! Vui lòng nhập tối đa 255 ký tự.';
-    }
-
-    if (price === undefined || price === null || price === '') {
-        return 'Giá bán không được để trống!';
-    }
-    const numPrice = Number(price);
-    if (isNaN(numPrice)) {
-        return 'Giá bán phải là số hợp lệ!';
-    }
-    if (numPrice < 0) {
-        return 'Giá bán không hợp lệ! Giá sách phải từ 0 đ trở lên.';
-    }
-    if (numPrice > 99999999.99) {
-        return 'Giá bán vượt quá giới hạn hệ thống (Tối đa 99.999.999,99 đ)!';
-    }
-
-    if (isbn) {
-        if (typeof isbn !== 'string') {
-            return 'Mã ISBN không hợp lệ!';
-        }
-        if (isbn.length > 50) {
-            return 'Mã ISBN quá dài! Vui lòng nhập tối đa 50 ký tự.';
-        }
-        const isbnRegex = /^[0-9\-]+$/;
-        if (!isbnRegex.test(isbn)) {
-            return 'Mã ISBN không hợp lệ! Vui lòng chỉ nhập số và dấu gạch ngang.';
-        }
-    }
-
-    if (description && description.length > 5000) {
-        return 'Mô tả sách quá dài! Vui lòng rút gọn dưới 5000 ký tự.';
-    }
-
-    if (status) {
-        const validStatuses = ['DRAFT', 'PUBLISHED', 'HIDDEN'];
-        if (!validStatuses.includes(status)) {
-            return 'Trạng thái sách không hợp lệ! Chỉ cho phép: Công khai (PUBLISHED), Bản nháp (DRAFT), hoặc Tạm ẩn (HIDDEN).';
-        }
-    }
-
-    return null;
-}
-
-function handleDatabaseError(err) {
-    // Mã danh mục không tồn tại (B77: cả lần tạo / sửa đã ROLLBACK)
-    if (err.code === '23503' && err.constraint === 'book_categories_category_id_fkey') {
-        return 'Danh mục không tồn tại!';
-    }
-    const msg = err.message || '';
-    if (msg.includes('numeric field overflow')) {
-        return 'Giá bán vượt quá giới hạn hệ thống (Tối đa 99.999.999,99 đ)!';
-    }
-    if (msg.includes('value too long for type character varying')) {
-        if (msg.includes('(255)')) {
-            return 'Dữ liệu nhập vào quá dài (Tối đa 255 ký tự)!';
-        }
-        if (msg.includes('(50)')) {
-            return 'Mã ISBN quá dài (Tối đa 50 ký tự)!';
-        }
-        if (msg.includes('(500)')) {
-            return 'Đường dẫn ảnh bìa quá dài (Tối đa 500 ký tự)!';
-        }
-        return 'Dữ liệu nhập vào vượt quá giới hạn độ dài của hệ thống!';
-    }
-    if (msg.includes('violates check constraint "books_status_check"')) {
-        return 'Trạng thái sách không hợp lệ! Chỉ cho phép: DRAFT, PUBLISHED, HIDDEN.';
-    }
-    // Lỗi không nhận diện được: KHÔNG trả nguyên văn (spec 001) — để errorHandler che đi
-    return null;
+// Mã danh mục không tồn tại: chỉ DB biết (khoá ngoại) — cả lần tạo / sửa đã ROLLBACK (B77).
+// Các luật kiểm tra đầu vào khác của sách nằm ở lược đồ Zod `schemas.book.write` (B36).
+function isMissingCategory(err) {
+    return err.code === '23503' && err.constraint === 'book_categories_category_id_fkey';
 }
 
 class BookController {
@@ -156,11 +76,6 @@ class BookController {
         try {
             const { title, author, isbn, description, price, categories, cover_url, status, is_featured, is_bestseller, display_order, images } = req.body;
 
-            const validationError = validateBookInput({ title, author, isbn, description, price, status });
-            if (validationError) {
-                return res.status(400).json({ error: validationError });
-            }
-
             // Tạo sách + danh mục + ảnh chi tiết phụ trong một transaction; service xoá cache sau COMMIT
             const book = await BookService.createBook(
                 { title, author, isbn, description, price: Number(price), cover_url, status: status || 'PUBLISHED', is_featured: !!is_featured, is_bestseller: !!is_bestseller, display_order: parseInt(display_order) || 0 },
@@ -173,8 +88,7 @@ class BookController {
                 data: book ? { ...book, hashId: encodeBookId(book.id) } : null
             });
         } catch (err) {
-            const known = handleDatabaseError(err);
-            if (known) return res.status(400).json({ error: known });
+            if (isMissingCategory(err)) return res.status(400).json({ error: 'Danh mục không tồn tại!' });
             next(err);
         }
     }
@@ -218,11 +132,6 @@ class BookController {
             const { id } = req.params;
             const { title, author, isbn, description, price, categories, cover_url, status, is_featured, is_bestseller, display_order, images } = req.body;
 
-            const validationError = validateBookInput({ title, author, isbn, description, price, status });
-            if (validationError) {
-                return res.status(400).json({ error: validationError });
-            }
-
             // B77: sách + danh mục + ảnh trong một transaction; cache xoá sau COMMIT và TRƯỚC khi trả response
             const book = await BookService.updateBook(
                 id,
@@ -240,8 +149,7 @@ class BookController {
                 data: { ...book, hashId: encodeBookId(book.id) }
             });
         } catch (err) {
-            const known = handleDatabaseError(err);
-            if (known) return res.status(400).json({ error: known });
+            if (isMissingCategory(err)) return res.status(400).json({ error: 'Danh mục không tồn tại!' });
             next(err);
         }
     }

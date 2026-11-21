@@ -75,8 +75,29 @@ const wishlist = {
 };
 
 // ---------- Sách / danh mục / bài viết ----------
+// Một trường sách = một hàm trả câu báo lỗi đầu tiên (hoặc null). Chuyển nguyên văn từ `validateBookInput` cũ của
+// bookController (B36): giao diện hiển thị đúng các câu này, nên giữ cả câu chữ lẫn thứ tự kiểm tra.
+// `optional`: không gửi trường thì bỏ qua; trường bắt buộc vẫn chạy `check` để báo câu "không được để trống" riêng.
+function bookRule(check, { optional = false } = {}) {
+    const schema = z.any().superRefine((value, ctx) => {
+        const message = check(value);
+        if (message) ctx.addIssue({ code: 'custom', message });
+    });
+    return optional ? schema.optional() : schema;
+}
+
+const MAX_BOOK_PRICE = 99999999.99; // cột books.price NUMERIC(10,2)
+const BOOK_STATUSES = ['DRAFT', 'PUBLISHED', 'HIDDEN'];
+
+function requiredName(emptyMessage, tooLongMessage) {
+    return bookRule(v => {
+        if (!v || typeof v !== 'string' || !v.trim()) return emptyMessage;
+        if (v.length > 255) return tooLongMessage;
+        return null;
+    });
+}
+
 const book = {
-    // Tiêu đề, tác giả, giá, ISBN, mô tả, trạng thái đã có validateBookInput trong controller
     write: z.looseObject({
         cover_url: text('Ảnh bìa (cover_url)', 500),
         display_order: number('Thứ tự hiển thị', -1000000, 1000000, { integer: true }),
@@ -85,7 +106,29 @@ const book = {
         categories: z.array(number('Mã danh mục', 1, 2147483647, { integer: true, required: true }),
             { error: 'Danh mục phải là một danh sách' }).max(50, { error: 'Tối đa 50 danh mục' }).nullish(),
         images: z.array(z.looseObject({ image_url: text('Ảnh chi tiết', 500) }),
-            { error: 'Ảnh chi tiết phải là một danh sách' }).max(30, { error: 'Tối đa 30 ảnh chi tiết' }).nullish()
+            { error: 'Ảnh chi tiết phải là một danh sách' }).max(30, { error: 'Tối đa 30 ảnh chi tiết' }).nullish(),
+        title: requiredName('Tên sách không được để trống!', 'Tên sách quá dài! Vui lòng nhập tối đa 255 ký tự.'),
+        author: requiredName('Tác giả không được để trống!', 'Tên tác giả quá dài! Vui lòng nhập tối đa 255 ký tự.'),
+        price: bookRule(v => {
+            if (v === undefined || v === null || v === '') return 'Giá bán không được để trống!';
+            const price = Number(v);
+            if (isNaN(price)) return 'Giá bán phải là số hợp lệ!';
+            if (price < 0) return 'Giá bán không hợp lệ! Giá sách phải từ 0 đ trở lên.';
+            if (price > MAX_BOOK_PRICE) return 'Giá bán vượt quá giới hạn hệ thống (Tối đa 99.999.999,99 đ)!';
+            return null;
+        }),
+        isbn: bookRule(v => {
+            if (!v) return null; // không bắt buộc
+            if (typeof v !== 'string') return 'Mã ISBN không hợp lệ!';
+            if (v.length > 50) return 'Mã ISBN quá dài! Vui lòng nhập tối đa 50 ký tự.';
+            if (!/^[0-9-]+$/.test(v)) return 'Mã ISBN không hợp lệ! Vui lòng chỉ nhập số và dấu gạch ngang.';
+            return null;
+        }, { optional: true }),
+        description: bookRule(v => (v && v.length > 5000
+            ? 'Mô tả sách quá dài! Vui lòng rút gọn dưới 5000 ký tự.' : null), { optional: true }),
+        status: bookRule(v => (v && !BOOK_STATUSES.includes(v)
+            ? 'Trạng thái sách không hợp lệ! Chỉ cho phép: Công khai (PUBLISHED), Bản nháp (DRAFT), hoặc Tạm ẩn (HIDDEN).'
+            : null), { optional: true })
     }),
     list: z.looseObject({
         ...listQuery,
