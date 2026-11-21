@@ -1,5 +1,11 @@
 const pool = require('../config/database');
 
+// Cột của sách trả ra API. Liệt kê rõ thay vì `*`: bỏ cột cũ `stock_quantity` (không còn dùng, luôn 0 — tồn kho thật
+// nằm ở bảng inventory, B79). Thêm cột mới vào bảng books thì thêm vào đây nếu muốn trả ra ngoài.
+const BOOK_COLUMNS = ['id', 'title', 'author', 'description', 'price', 'isbn', 'cover_url', 'status',
+    'is_featured', 'is_bestseller', 'display_order', 'created_at', 'rag_indexed_at'];
+const bookColumns = (alias) => BOOK_COLUMNS.map(c => (alias ? `${alias}.${c}` : c)).join(', ');
+
 class Book {
     // 1. Thêm sách mới. `executor`: client của transaction bên gọi (mặc định pool).
     static async create(bookData, executor = pool) {
@@ -8,7 +14,7 @@ class Book {
         const query = `
       INSERT INTO books (title, author, isbn, description, price, cover_url, status, is_featured, is_bestseller, display_order)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING *
+      RETURNING ${bookColumns()}
     `;
         const result = await executor.query(query, [title, author, isbn, description, price, cover_url || null, status, is_featured, is_bestseller, display_order]);
         return result.rows[0];
@@ -21,7 +27,7 @@ class Book {
             UPDATE books
             SET title = $1, author = $2, isbn = $3, description = $4, price = $5, cover_url = $6, status = $7, is_featured = $8, is_bestseller = $9, display_order = $10
             WHERE id = $11
-            RETURNING *
+            RETURNING ${bookColumns()}
         `;
         const result = await executor.query(query, [title, author, isbn || null, description || null, price, cover_url || null, status, is_featured, is_bestseller, display_order, id]);
         return result.rows[0] || null;
@@ -56,7 +62,7 @@ class Book {
     // Lấy chi tiết 1 cuốn sách theo ID
     static async findById(id) {
         const query = `
-            SELECT b.*, 
+            SELECT ${bookColumns('b')},
                    (COALESCE(i.available_qty, 0) - COALESCE(i.reserved_qty, 0)) as available_qty,
                    COALESCE(i.reserved_qty, 0) as reserved_qty,
                    (
@@ -94,7 +100,7 @@ class Book {
     // adminMode = true: lấy tất cả trạng thái; adminMode = false: chỉ lấy PUBLISHED
     static async getAll({ limit = 10, offset = 0, search = '', categoryId, sortBy = 'newest', maxPrice, adminMode = false, isFeatured }) {
         let query = `
-      SELECT b.*, 
+      SELECT ${bookColumns('b')},
              (COALESCE(i.available_qty, 0) - COALESCE(i.reserved_qty, 0)) as available_qty,
              COALESCE(i.reserved_qty, 0) as reserved_qty,
              -- Gom các danh mục của sách này thành một mảng JSON dùng subquery để tránh lỗi GROUP BY của PostgreSQL
