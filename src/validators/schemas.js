@@ -1,18 +1,67 @@
 // Lược đồ kiểm tra đầu vào theo nhóm chức năng (spec 003).
 // Nguyên tắc:
-// - Trường đã có câu báo THIẾU trong controller → để tuỳ chọn ở đây (giữ câu cũ, FR-005).
-// - Giới hạn ở đây không chặt hơn kiểm tra sẵn có trong controller (để câu cũ vẫn được trả).
+// - MỌI kiểm tra đầu vào (thiếu trường, kiểu, định dạng, khoảng, kiểm tra chéo giữa các trường) nằm ở đây; controller
+//   chỉ còn luật nghiệp vụ cần DB hoặc cần biết ai đang gọi (B36).
+// - Kiểm tra trường lẻ khai báo trong `z.looseObject`; câu "thiếu trường" riêng và kiểm tra chéo dùng `withChecks`
+//   (chạy sau, giữ nguyên câu chữ và thứ tự của controller cũ — giao diện hiển thị đúng các câu này).
 // - Độ dài tối đa không vượt cột DB (tránh lỗi 500 "value too long").
 const { z, text, number, oneOf, bool, bookId, idList, listQuery, stringError, VN_PHONE_REGEX } = require('./common');
+const { validateNewPassword } = require('../utils/authTokens');
 
 const MAX_MONEY = 1000000000; // 1 tỷ đ
 
+// Chép các kiểm tra trước đây nằm trong controller (B36). Chạy SAU kiểm tra từng trường của `schema` — giống thứ tự
+// cũ (lược đồ ở route chạy trước controller) — và báo câu ĐẦU TIÊN theo đúng thứ tự cũ. Mỗi check nhận dữ liệu đã qua
+// lược đồ, trả câu báo lỗi hoặc null. Check vẫn chạy khi một trường đã sai kiểu (lỗi đó báo trước), nên không được
+// giả định kiểu: dùng `isBlank`, `typeof`.
+function withChecks(schema, ...checks) {
+    return schema.superRefine((data, ctx) => {
+        for (const check of checks) {
+            const message = check(data);
+            if (message) {
+                ctx.addIssue({ code: 'custom', message });
+                return;
+            }
+        }
+    });
+}
+
+// Thiếu / rỗng / toàn khoảng trắng (thay cho `!v || !v.trim()` của controller cũ, không ném lỗi khi sai kiểu)
+const isBlank = v => !v || (typeof v === 'string' && !v.trim());
+
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const NAME_SPECIAL_CHARS = /[0-9`~!@#$%^&*()_+={}[\]|\\:;"'<>,.?/]/;
+
 // ---------- Xác thực / tài khoản ----------
 const auth = {
-    login: z.looseObject({ email: text('Email', 255), password: text('Mật khẩu', 128) }),
-    register: z.looseObject({ email: text('Email', 255), password: text('Mật khẩu', 128), fullName: text('Họ và tên', 255) }),
-    forgotPassword: z.looseObject({ email: text('Email', 255) }),
-    resetPassword: z.looseObject({ token: text('Mã xác thực', 200), newPassword: text('Mật khẩu mới', 128) }),
+    login: withChecks(
+        z.looseObject({ email: text('Email', 255), password: text('Mật khẩu', 128) }),
+        d => (!d.email || !d.password ? 'Vui lòng nhập email và mật khẩu!' : null)
+    ),
+    register: withChecks(
+        z.looseObject({ email: text('Email', 255), password: text('Mật khẩu', 128), fullName: text('Họ và tên', 255) }),
+        d => (!d.email || !d.password || !d.fullName ? 'Vui lòng nhập đầy đủ email, mật khẩu và họ tên!' : null),
+        // Email / họ tên được so sau khi bỏ khoảng trắng hai đầu (controller lưu bản đã trim)
+        d => (typeof d.email === 'string' && !EMAIL_REGEX.test(d.email.trim())
+            ? 'Địa chỉ email không hợp lệ (ví dụ: vi-du@email.com)!' : null),
+        d => {
+            if (typeof d.fullName !== 'string') return null;
+            const name = d.fullName.trim();
+            if (name.length < 2 || name.length > 100) return 'Họ và tên phải dài từ 2 đến 100 ký tự!';
+            if (NAME_SPECIAL_CHARS.test(name)) return 'Họ và tên không được chứa số hoặc ký tự đặc biệt!';
+            return null;
+        },
+        d => validateNewPassword(d.password) // chính sách spec 002: ≥ 8 ký tự, có chữ và số
+    ),
+    forgotPassword: withChecks(
+        z.looseObject({ email: text('Email', 255) }),
+        d => (!d.email ? 'Vui lòng cung cấp email!' : null)
+    ),
+    resetPassword: withChecks(
+        z.looseObject({ token: text('Mã xác thực', 200), newPassword: text('Mật khẩu mới', 128) }),
+        d => (!d.token || !d.newPassword ? 'Mã xác thực hoặc mật khẩu mới không hợp lệ!' : null),
+        d => validateNewPassword(d.newPassword)
+    ),
     // Spec 005: ID token do Google Identity Services trả về (JWT ~1–2 KB)
     google: z.looseObject({ credential: text('Mã xác thực Google', 4096, { required: true }) })
 };
@@ -29,21 +78,34 @@ const user = {
             .nullish(),
         address: text('Địa chỉ', 1000)
     }),
-    changePassword: z.looseObject({ currentPassword: text('Mật khẩu hiện tại', 128), newPassword: text('Mật khẩu mới', 128) })
+    changePassword: withChecks(
+        z.looseObject({ currentPassword: text('Mật khẩu hiện tại', 128), newPassword: text('Mật khẩu mới', 128) }),
+        d => (!d.currentPassword || !d.newPassword ? 'Vui lòng cung cấp mật khẩu hiện tại và mật khẩu mới' : null),
+        d => validateNewPassword(d.newPassword)
+    )
 };
 
 // ---------- Giỏ hàng / đơn hàng ----------
 const quantity = number('Số lượng', 1, 99, { integer: true });
 
 const cart = {
-    add: z.looseObject({ bookId: bookId.optional(), quantity }),
-    addBatch: z.looseObject({
-        items: z.array(z.looseObject({ bookId, quantity: number('Số lượng', 1, 99, { integer: true, required: true }) }),
-            { error: 'Danh sách sản phẩm không hợp lệ' })
-            .max(50, { error: 'Danh sách sản phẩm tối đa 50 món' })
-            .optional()
-    }),
-    removeBulk: z.looseObject({ bookIds: idList('Danh sách mã sách').optional() }),
+    add: withChecks(
+        z.looseObject({ bookId: bookId.optional(), quantity }),
+        d => (!d.bookId || !d.quantity ? 'Thiếu bookId hoặc quantity' : null)
+    ),
+    addBatch: withChecks(
+        z.looseObject({
+            items: z.array(z.looseObject({ bookId, quantity: number('Số lượng', 1, 99, { integer: true, required: true }) }),
+                { error: 'Danh sách sản phẩm không hợp lệ' })
+                .max(50, { error: 'Danh sách sản phẩm tối đa 50 món' })
+                .optional()
+        }),
+        d => (!Array.isArray(d.items) || d.items.length === 0 ? 'Danh sách sản phẩm không hợp lệ' : null)
+    ),
+    removeBulk: withChecks(
+        z.looseObject({ bookIds: idList('Danh sách mã sách').optional() }),
+        d => (!Array.isArray(d.bookIds) || d.bookIds.length === 0 ? 'Danh sách mã sách (bookIds) không hợp lệ!' : null)
+    ),
     checkout: z.looseObject({ selectedBookIds: idList('Danh sách sách được chọn').optional() })
 };
 
@@ -67,11 +129,22 @@ const order = {
 };
 
 const review = {
-    create: z.looseObject({ comment: text('Nhận xét', 2000) })
+    create: withChecks(
+        z.looseObject({ comment: text('Nhận xét', 2000) }),
+        d => {
+            const rating = parseInt(d.rating);
+            return isNaN(rating) || rating < 1 || rating > 5 ? 'Đánh giá phải từ 1 đến 5 sao!' : null;
+        },
+        d => (!d.comment || (typeof d.comment === 'string' && d.comment.trim().length < 10)
+            ? 'Nội dung nhận xét phải có ít nhất 10 ký tự!' : null)
+    )
 };
 
 const wishlist = {
-    toggle: z.looseObject({ bookId: bookId.optional() })
+    toggle: withChecks(
+        z.looseObject({ bookId: bookId.optional() }),
+        d => (!d.bookId ? 'Mã sách (bookId) không được để trống!' : null)
+    )
 };
 
 // ---------- Sách / danh mục / bài viết ----------
@@ -141,12 +214,18 @@ const book = {
 };
 
 const category = {
-    write: z.looseObject({ name: text('Tên danh mục', 100), description: text('Mô tả danh mục', 2000) }),
-    assignBooks: z.looseObject({ bookIds: z.array(z.unknown()).max(500, { error: 'Tối đa 500 sách mỗi lần' }).optional() })
+    write: withChecks(
+        z.looseObject({ name: text('Tên danh mục', 100), description: text('Mô tả danh mục', 2000) }),
+        d => (!d.name ? 'Tên danh mục không được để trống' : null)
+    ),
+    assignBooks: withChecks(
+        z.looseObject({ bookIds: z.array(z.unknown()).max(500, { error: 'Tối đa 500 sách mỗi lần' }).optional() }),
+        d => (!Array.isArray(d.bookIds) ? 'Dữ liệu bookIds không hợp lệ, phải là một mảng' : null)
+    )
 };
 
 const article = {
-    write: z.looseObject({
+    write: withChecks(z.looseObject({
         title: text('Tiêu đề', 255),
         summary: text('Tóm tắt', 2000),
         content: text('Nội dung', 100000),
@@ -156,6 +235,8 @@ const article = {
         status: oneOf('Trạng thái bài viết', ['DRAFT', 'PUBLISHED', 'HIDDEN']),
         is_featured: bool('Bài viết nổi bật')
     }),
+    d => (isBlank(d.title) ? 'Tiêu đề không được để trống!' : null),
+    d => (isBlank(d.content) ? 'Nội dung không được để trống!' : null)),
     list: z.looseObject({
         ...listQuery,
         category: text('Chuyên mục', 100),
@@ -193,23 +274,48 @@ const couponWrite = z.looseObject({
     }
 });
 
+const couponRequired = d => (!d.code || !d.discount_type || !d.discount_value || !d.end_date
+    ? 'Vui lòng điền đầy đủ: Mã, Loại giảm, Giá trị giảm, Ngày kết thúc' : null);
+
 const coupon = {
-    write: couponWrite,
+    // Tạo mới kiểm thêm loại giảm; sửa thì không (giữ đúng hành vi cũ của controller)
+    create: withChecks(couponWrite, couponRequired,
+        d => (!['PERCENT', 'FIXED'].includes(d.discount_type) ? 'Loại giảm giá phải là PERCENT hoặc FIXED' : null)),
+    update: withChecks(couponWrite, couponRequired),
     toggle: z.looseObject({ is_active: bool('Trạng thái kích hoạt') }),
-    validateQuery: z.looseObject({
-        code: text('Mã giảm giá', 50),
-        orderAmount: number('Giá trị đơn hàng', 0, MAX_MONEY)
-    })
+    validateQuery: withChecks(
+        z.looseObject({
+            code: text('Mã giảm giá', 50),
+            orderAmount: number('Giá trị đơn hàng', 0, MAX_MONEY)
+        }),
+        d => (isBlank(d.code) ? 'Vui lòng nhập mã giảm giá' : null),
+        d => {
+            const amount = Number(d.orderAmount);
+            return isNaN(amount) || amount <= 0 ? 'Giá trị đơn hàng không hợp lệ' : null;
+        }
+    )
 };
 
 // ---------- Kho / quản trị ----------
+const hasValue = v => v !== undefined && v !== null && v !== '';
+
 const inventory = {
-    update: z.looseObject({
-        availableQty: number('Số lượng tồn kho', 0, 1000000, { integer: true }),
-        quantity: number('Số lượng nhập/xuất', 1, 1000000, { integer: true }),
-        type: oneOf('Loại giao dịch kho', ['STOCK_IN', 'STOCK_OUT', 'ADJUSTMENT', 'RETURN']),
-        reason: text('Lý do', 1000)
-    })
+    // Gửi `quantity` (+ STOCK_IN / STOCK_OUT) = cộng/trừ theo lượng thay đổi; không thì `availableQty` = đặt thẳng
+    update: withChecks(
+        z.looseObject({
+            availableQty: number('Số lượng tồn kho', 0, 1000000, { integer: true }),
+            quantity: number('Số lượng nhập/xuất', 1, 1000000, { integer: true }),
+            type: oneOf('Loại giao dịch kho', ['STOCK_IN', 'STOCK_OUT', 'ADJUSTMENT', 'RETURN']),
+            reason: text('Lý do', 1000)
+        }),
+        d => {
+            if (hasValue(d.quantity)) {
+                return d.type !== 'STOCK_IN' && d.type !== 'STOCK_OUT'
+                    ? 'Khi nhập/xuất theo số lượng, loại giao dịch phải là STOCK_IN hoặc STOCK_OUT!' : null;
+            }
+            return hasValue(d.availableQty) && d.availableQty >= 0 ? null : 'Số lượng không hợp lệ!';
+        }
+    )
 };
 
 const admin = {
@@ -232,7 +338,14 @@ const admin = {
         status: z.enum(['PENDING', 'CONFIRMED', 'PACKAGING', 'DELIVERING', 'DELIVERED', 'CANCELLED'], { error: 'Trạng thái không hợp lệ' }),
         cancelReason: text('Lý do huỷ đơn', 1000)
     }),
-    userRole: z.looseObject({ role: text('Vai trò', 20) })
+    userRole: withChecks(
+        z.looseObject({ role: text('Vai trò', 20) }),
+        d => (!['CUSTOMER', 'CURATOR', 'ADMIN'].includes(d.role) ? 'Role không hợp lệ' : null)
+    ),
+    userStatus: withChecks(
+        z.looseObject({}),
+        d => (typeof d.isActive !== 'boolean' ? 'Trạng thái isActive phải là giá trị boolean (true/false)' : null)
+    )
 };
 
 module.exports = { auth, user, cart, order, review, wishlist, book, category, article, coupon, inventory, admin };

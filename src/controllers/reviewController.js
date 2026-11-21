@@ -28,14 +28,7 @@ class ReviewController {
             const userId = req.user.id;
             const { rating, comment } = req.body;
 
-            const ratingVal = parseInt(rating);
-            if (isNaN(ratingVal) || ratingVal < 1 || ratingVal > 5) {
-                return res.status(400).json({ error: 'Đánh giá phải từ 1 đến 5 sao!' });
-            }
-
-            if (!comment || comment.trim().length < 10) {
-                return res.status(400).json({ error: 'Nội dung nhận xét phải có ít nhất 10 ký tự!' });
-            }
+            const ratingVal = parseInt(rating); // 1–5 sao, nhận xét ≥ 10 ký tự: lược đồ `schemas.review.create` (B36)
 
             // Kiểm tra quyền mua hàng (bỏ qua cho ADMIN và CURATOR)
             const isEmployee = req.user.role === 'ADMIN' || req.user.role === 'CURATOR';

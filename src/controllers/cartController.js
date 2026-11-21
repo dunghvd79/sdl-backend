@@ -38,7 +38,6 @@ class CartController {
     static async addToCart(req, res, next) {
         try {
             const { bookId, quantity } = req.body;
-            if (!bookId || !quantity) return res.status(400).json({ error: 'Thiếu bookId hoặc quantity' });
 
             let targetBookId = bookId;
             if (typeof bookId === 'string' && isNaN(bookId)) {
@@ -56,9 +55,6 @@ class CartController {
     static async addBatchToCart(req, res, next) {
         try {
             const { items } = req.body;
-            if (!Array.isArray(items) || items.length === 0) {
-                return res.status(400).json({ error: 'Danh sách sản phẩm không hợp lệ' });
-            }
             const targetItems = items.map(item => {
                 let targetBookId = item.bookId;
                 if (typeof item.bookId === 'string' && isNaN(item.bookId)) {
@@ -103,9 +99,6 @@ class CartController {
     static async removeBulkFromCart(req, res, next) {
         try {
             const { bookIds } = req.body;
-            if (!bookIds || !Array.isArray(bookIds) || bookIds.length === 0) {
-                return res.status(400).json({ error: 'Danh sách mã sách (bookIds) không hợp lệ!' });
-            }
 
             const decodedBookIds = bookIds.map(id => {
                 if (typeof id === 'string' && isNaN(id)) {

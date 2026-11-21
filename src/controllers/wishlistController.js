@@ -8,10 +8,6 @@ class WishlistController {
             const { bookId } = req.body;
             const userId = req.user.id;
 
-            if (!bookId) {
-                return res.status(400).json({ error: 'Mã sách (bookId) không được để trống!' });
-            }
-
             let targetBookId = bookId;
             if (typeof bookId === 'string' && isNaN(bookId)) {
                 targetBookId = decodeBookId(bookId);

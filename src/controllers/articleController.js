@@ -68,13 +68,6 @@ class ArticleController {
         try {
             const { title, summary, content, cover_url, category, reading_time, status, is_featured } = req.body;
 
-            if (!title || !title.trim()) {
-                return res.status(400).json({ error: 'Tiêu đề không được để trống!' });
-            }
-            if (!content || !content.trim()) {
-                return res.status(400).json({ error: 'Nội dung không được để trống!' });
-            }
-
             const article = await Article.create({
                 title,
                 summary,
@@ -100,13 +93,6 @@ class ArticleController {
         try {
             const { id } = req.params;
             const { title, summary, content, cover_url, category, reading_time, status, is_featured } = req.body;
-
-            if (!title || !title.trim()) {
-                return res.status(400).json({ error: 'Tiêu đề không được để trống!' });
-            }
-            if (!content || !content.trim()) {
-                return res.status(400).json({ error: 'Nội dung không được để trống!' });
-            }
 
             const article = await Article.update(id, {
                 title,

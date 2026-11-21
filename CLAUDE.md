@@ -33,13 +33,13 @@ Controller là class có method `static async (req, res, next)`, trả `res.stat
 - Lỗi nghiệp vụ (người dùng đọc và tự xử lý được) → `throw new AppError('<tiếng Việt>', <mã>)` từ [src/utils/AppError.js](src/utils/AppError.js). Lỗi khác cứ để ném `Error` thường.
 - Trong `catch` của controller chỉ gọi `next(err)`. **Không bao giờ** `res.json({ error: err.message })`, vì như vậy sẽ lộ lỗi DB ra ngoài.
 - [src/middleware/errorHandler.js](src/middleware/errorHandler.js): `AppError` → mã + thông báo; JSON hỏng → 400; Postgres `23505` → 400 "Dữ liệu này đã tồn tại."; còn lại → 500 chung + `errorId` (UUID), chi tiết ghi `console.error` với `[error <errorId>]` để tra trong Render Logs. `/api/*` không khớp route → 404 JSON.
-- Các nhánh kiểm tra đầu vào `return res.status(400).json({ error: '...' })` với câu cố định vẫn được giữ.
+- Controller **không** kiểm tra đầu vào (B36): mọi kiểm tra đầu vào nằm ở lược đồ Zod. Controller chỉ còn `res.status(400)` cho luật nghiệp vụ cần DB hoặc cần biết ai đang gọi (vd admin tự khoá chính mình, mã giảm giá hết hạn, trùng mã).
 
 **Kiểm tra đầu vào (spec 003, Zod 4):**
 - Lược đồ khai báo trong [src/validators/schemas.js](src/validators/schemas.js), dùng các khối dựng sẵn ở [src/validators/common.js](src/validators/common.js): `text`, `number`, `oneOf`, `bool`, `bookId`, `idList`, `listQuery`.
 - Gắn ở route: `validate({ body | query | params: schemas.x.y })` ([src/middleware/validate.js](src/middleware/validate.js)). Middleware **chỉ kiểm tra**, không thay `req.body`. Vi phạm đầu tiên trả về `AppError` 400 với câu tiếng Việt.
 - Đối tượng dùng `z.looseObject` vì giao diện gửi kèm trường thừa. Số dùng `z.coerce`, vì form gửi số dưới dạng chuỗi.
-- Trường nào controller đã có câu báo thiếu thì để tuỳ chọn trong lược đồ, để câu cũ vẫn được trả. Giới hạn trong lược đồ không chặt hơn kiểm tra sẵn có, và độ dài không vượt độ dài cột DB.
+- Câu "thiếu trường" riêng và kiểm tra chéo giữa các trường dùng `withChecks(schema, ...checks)` trong `schemas.js`: chạy sau kiểm tra từng trường, báo câu đầu tiên. Check vẫn chạy khi một trường đã sai kiểu, nên không giả định kiểu (dùng `isBlank`, `typeof`). Độ dài không vượt độ dài cột DB. Câu báo lỗi giao diện đang hiển thị được khoá bằng `tests/validation.messages.test.js` và `tests/validation.book.test.js`: đổi câu chữ thì phải cố ý sửa cả test.
 - `limit` của API danh sách tối đa 500, vì trang quản trị đang dùng tới 500.
 - Thêm API ghi dữ liệu mới thì **phải** thêm lược đồ, kèm test cho dữ liệu sai và test cho payload thật của giao diện.
 

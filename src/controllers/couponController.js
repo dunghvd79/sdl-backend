@@ -9,15 +9,7 @@ class CouponController {
         try {
             const { code, orderAmount } = req.query;
             const userId = req.user.id;
-
-            if (!code || code.trim() === '') {
-                return res.status(400).json({ error: 'Vui lòng nhập mã giảm giá' });
-            }
-
-            const amount = Number(orderAmount);
-            if (isNaN(amount) || amount <= 0) {
-                return res.status(400).json({ error: 'Giá trị đơn hàng không hợp lệ' });
-            }
+            const amount = Number(orderAmount); // mã / giá trị đơn đã kiểm ở lược đồ `schemas.coupon.validateQuery`
 
             // 1. Tìm coupon
             const coupon = await Coupon.findByCode(code);
@@ -107,14 +99,6 @@ class CouponController {
         try {
             const { code, discount_type, discount_value, min_order_amount, max_discount_amount, start_date, end_date, usage_limit } = req.body;
 
-            if (!code || !discount_type || !discount_value || !end_date) {
-                return res.status(400).json({ error: 'Vui lòng điền đầy đủ: Mã, Loại giảm, Giá trị giảm, Ngày kết thúc' });
-            }
-
-            if (!['PERCENT', 'FIXED'].includes(discount_type)) {
-                return res.status(400).json({ error: 'Loại giảm giá phải là PERCENT hoặc FIXED' });
-            }
-
             const coupon = await Coupon.create({ code, discount_type, discount_value, min_order_amount, max_discount_amount, start_date, end_date, usage_limit });
             res.status(201).json({ message: 'Tạo mã giảm giá thành công!', data: coupon });
         } catch (error) {
@@ -130,10 +114,6 @@ class CouponController {
         try {
             const { id } = req.params;
             const { code, discount_type, discount_value, min_order_amount, max_discount_amount, start_date, end_date, usage_limit, is_active } = req.body;
-
-            if (!code || !discount_type || !discount_value || !end_date) {
-                return res.status(400).json({ error: 'Vui lòng điền đầy đủ: Mã, Loại giảm, Giá trị giảm, Ngày kết thúc' });
-            }
 
             const coupon = await Coupon.update(id, { code, discount_type, discount_value, min_order_amount, max_discount_amount, start_date, end_date, usage_limit, is_active });
             if (!coupon) return res.status(404).json({ error: 'Không tìm thấy mã giảm giá' });

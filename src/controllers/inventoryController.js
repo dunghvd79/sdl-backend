@@ -36,17 +36,14 @@ class InventoryController {
 
             // Ưu tiên lượng thay đổi (quantity + STOCK_IN/STOCK_OUT): máy chủ tự cộng/trừ trên tồn kho hiện
             // tại, tránh ghi đè số do giao diện tính từ dữ liệu cũ. availableQty = đặt thẳng (kiểm kê / giao diện cũ).
+            // Lược đồ `schemas.inventory.update` đã bảo đảm: có quantity thì type là STOCK_IN / STOCK_OUT, không thì
+            // có availableQty ≥ 0 (B36).
             let adjustment;
             if (quantity !== undefined && quantity !== null && quantity !== '') {
-                if (type !== 'STOCK_IN' && type !== 'STOCK_OUT') {
-                    return res.status(400).json({ error: 'Khi nhập/xuất theo số lượng, loại giao dịch phải là STOCK_IN hoặc STOCK_OUT!' });
-                }
                 const amount = parseInt(quantity, 10);
                 adjustment = { mode: 'delta', amount: type === 'STOCK_IN' ? amount : -amount };
-            } else if (availableQty !== undefined && availableQty !== null && availableQty >= 0) {
-                adjustment = { mode: 'set', amount: parseInt(availableQty, 10) };
             } else {
-                return res.status(400).json({ error: 'Số lượng không hợp lệ!' });
+                adjustment = { mode: 'set', amount: parseInt(availableQty, 10) };
             }
 
             const Inventory = require('../models/Inventory');

@@ -162,11 +162,6 @@ class AdminController {
                 return res.status(400).json({ error: 'Không thể tự thay đổi quyền của chính mình!' });
             }
 
-            const validRoles = ['CUSTOMER', 'CURATOR', 'ADMIN'];
-            if (!validRoles.includes(role)) {
-                return res.status(400).json({ error: 'Role không hợp lệ' });
-            }
-
             const query = 'UPDATE users SET role = $1 WHERE id = $2 RETURNING id, email, full_name, role, is_active';
             const result = await pool.query(query, [role, userId]);
 
@@ -192,10 +187,6 @@ class AdminController {
             // Ngăn cản Admin tự khóa tài khoản của chính mình
             if (parseInt(userId) === req.user.id) {
                 return res.status(400).json({ error: 'Không thể tự khóa hoặc mở khóa tài khoản của chính mình!' });
-            }
-
-            if (typeof isActive !== 'boolean') {
-                return res.status(400).json({ error: 'Trạng thái isActive phải là giá trị boolean (true/false)' });
             }
 
             const updatedUser = await User.toggleStatus(userId, isActive);

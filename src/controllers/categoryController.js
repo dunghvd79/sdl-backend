@@ -27,7 +27,6 @@ class CategoryController {
     static async createCategory(req, res, next) {
         try {
             const { name, description } = req.body;
-            if (!name) return res.status(400).json({ error: 'Tên danh mục không được để trống' });
 
             const category = await Category.create({ name, description });
 
@@ -45,7 +44,6 @@ class CategoryController {
         try {
             const { id } = req.params;
             const { name, description } = req.body;
-            if (!name) return res.status(400).json({ error: 'Tên danh mục không được để trống' });
 
             const category = await Category.update(id, { name, description });
             if (!category) return res.status(404).json({ error: 'Không tìm thấy danh mục' });
@@ -97,9 +95,6 @@ class CategoryController {
         try {
             const { id } = req.params;
             const { bookIds } = req.body;
-            if (!Array.isArray(bookIds)) {
-                return res.status(400).json({ error: 'Dữ liệu bookIds không hợp lệ, phải là một mảng' });
-            }
 
             const category = await Category.findById(id);
             if (!category) return res.status(404).json({ error: 'Không tìm thấy danh mục' });

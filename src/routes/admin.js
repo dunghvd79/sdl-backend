@@ -36,7 +36,7 @@ router.post('/orders/bulk-status', requireRole(['ADMIN']), rl.writeLimiter, vali
 // Quản lý Người dùng (Chỉ Admin)
 router.get('/users', requireRole(['ADMIN']), validate({ query: schemas.admin.usersQuery }), AdminController.getAllUsers);
 router.put('/users/:userId/role', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.admin.userRole }), AdminController.updateUserRole);
-router.put('/users/:userId/status', requireRole(['ADMIN']), rl.writeLimiter, AdminController.toggleUserStatus);
+router.put('/users/:userId/status', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.admin.userStatus }), AdminController.toggleUserStatus);
 router.delete('/users/:userId', requireRole(['ADMIN']), rl.writeLimiter, AdminController.deleteUser);
 router.get('/users/:userId/activity', requireRole(['ADMIN']), AdminController.getUserActivity);
 router.get('/chats/:sessionId/messages', requireRole(['ADMIN']), AdminController.getChatMessages);

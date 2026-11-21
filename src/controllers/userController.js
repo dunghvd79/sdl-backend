@@ -4,7 +4,7 @@ const User = require('../models/User');
 const RefreshToken = require('../models/RefreshToken');
 const AuthService = require('../services/authService');
 const AppError = require('../utils/AppError');
-const { setRefreshCookie, validateNewPassword } = require('../utils/authTokens');
+const { setRefreshCookie } = require('../utils/authTokens');
 
 class UserController {
     // GET /api/users/profile
@@ -45,16 +45,8 @@ class UserController {
     // PUT /api/users/change-password
     static async changePassword(req, res, next) {
         try {
+            // Thiếu trường / độ mạnh mật khẩu mới: lược đồ `schemas.user.changePassword` (B36)
             const { currentPassword, newPassword } = req.body;
-
-            if (!currentPassword || !newPassword) {
-                return res.status(400).json({ error: 'Vui lòng cung cấp mật khẩu hiện tại và mật khẩu mới' });
-            }
-
-            const passwordError = validateNewPassword(newPassword);
-            if (passwordError) {
-                return res.status(400).json({ error: passwordError });
-            }
 
             // 1. Lấy user để lấy mật khẩu đã mã hóa
             const userQuery = 'SELECT password_hash FROM users WHERE id = $1';

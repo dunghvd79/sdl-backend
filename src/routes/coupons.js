@@ -20,8 +20,8 @@ router.get('/validate', validate({ query: schemas.coupon.validateQuery }), Coupo
 
 // ─── ADMIN / CURATOR: Quản lý mã giảm giá ───────────────────────────────────
 router.get('/', requireRole(['ADMIN']), CouponController.getAllCoupons);
-router.post('/', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.coupon.write }), CouponController.createCoupon);
-router.put('/:id', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.coupon.write }), CouponController.updateCoupon);
+router.post('/', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.coupon.create }), CouponController.createCoupon);
+router.put('/:id', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.coupon.update }), CouponController.updateCoupon);
 router.patch('/:id/toggle', requireRole(['ADMIN']), rl.writeLimiter, validate({ body: schemas.coupon.toggle }), CouponController.toggleCoupon);
 router.delete('/:id', requireRole(['ADMIN']), rl.writeLimiter, CouponController.deleteCoupon);
 

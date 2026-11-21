@@ -1,6 +1,6 @@
 const AuthService = require('../services/authService');
 const AppError = require('../utils/AppError');
-const { setRefreshCookie, clearRefreshCookie, readRefreshCookie, validateNewPassword } = require('../utils/authTokens');
+const { setRefreshCookie, clearRefreshCookie, readRefreshCookie } = require('../utils/authTokens');
 
 function sessionMeta(req) {
     const userAgent = req.headers['user-agent'];
@@ -11,39 +11,10 @@ class AuthController {
     // API: Đăng ký tài khoản (POST /api/auth/register)
     static async register(req, res, next) {
         try {
+            // Định dạng email / họ tên / độ mạnh mật khẩu đã kiểm ở lược đồ `schemas.auth.register` (B36)
             const { email, password, fullName } = req.body;
-
-            // Validate dữ liệu đầu vào
-            if (!email || !password || !fullName) {
-                return res.status(400).json({ error: 'Vui lòng nhập đầy đủ email, mật khẩu và họ tên!' });
-            }
-
             const trimmedEmail = email.trim();
             const trimmedName = fullName.trim();
-
-            // 1. Kiểm tra Email
-            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-            if (!emailRegex.test(trimmedEmail)) {
-                return res.status(400).json({ error: 'Địa chỉ email không hợp lệ (ví dụ: vi-du@email.com)!' });
-            }
-            if (trimmedEmail.length > 255) {
-                return res.status(400).json({ error: 'Email không được dài quá 255 ký tự!' });
-            }
-
-            // 2. Kiểm tra Họ và tên
-            if (trimmedName.length < 2 || trimmedName.length > 100) {
-                return res.status(400).json({ error: 'Họ và tên phải dài từ 2 đến 100 ký tự!' });
-            }
-            const nameSpecialCharRegex = /[0-9`~!@#$%^&*()_+={}\[\]|\\:;"'<>,.?\/]/;
-            if (nameSpecialCharRegex.test(trimmedName)) {
-                return res.status(400).json({ error: 'Họ và tên không được chứa số hoặc ký tự đặc biệt!' });
-            }
-
-            // 3. Kiểm tra Mật khẩu (chính sách spec 002: ≥ 8 ký tự, có chữ và số)
-            const passwordError = validateNewPassword(password);
-            if (passwordError) {
-                return res.status(400).json({ error: passwordError });
-            }
 
             // Gọi xuống Service xử lý với dữ liệu đã chuẩn hóa
             const result = await AuthService.register({
@@ -67,10 +38,6 @@ class AuthController {
     static async login(req, res, next) {
         try {
             const { email, password } = req.body;
-
-            if (!email || !password) {
-                return res.status(400).json({ error: 'Vui lòng nhập email và mật khẩu!' });
-            }
 
             const result = await AuthService.login({ email, password }, sessionMeta(req));
 
@@ -169,9 +136,6 @@ class AuthController {
     static async forgotPassword(req, res, next) {
         try {
             const { email } = req.body;
-            if (!email) {
-                return res.status(400).json({ error: 'Vui lòng cung cấp email!' });
-            }
 
             await AuthService.forgotPassword({ email: email.trim() });
 
@@ -187,16 +151,7 @@ class AuthController {
     // API: Đặt lại mật khẩu mới (POST /api/auth/reset-password)
     static async resetPassword(req, res, next) {
         try {
-            const { token, newPassword } = req.body;
-            if (!token || !newPassword) {
-                return res.status(400).json({ error: 'Mã xác thực hoặc mật khẩu mới không hợp lệ!' });
-            }
-
-            // Kiểm tra tính hợp lệ của mật khẩu mới (chính sách spec 002)
-            const passwordError = validateNewPassword(newPassword);
-            if (passwordError) {
-                return res.status(400).json({ error: passwordError });
-            }
+            const { token, newPassword } = req.body; // độ mạnh mật khẩu mới: lược đồ `schemas.auth.resetPassword`
 
             await AuthService.resetPassword({ token, newPassword });
 
