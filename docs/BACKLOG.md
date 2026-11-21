@@ -109,3 +109,6 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | B78(b) Cache sách chứa tồn kho nên mỗi đơn hàng / chỉnh kho xoá toàn bộ `books:*` → cache không chứa tồn kho, ghép tồn kho mới bằng `Inventory.getDisplayStock` khi đọc | `9bff335` |
 | B79 Cột cũ `books.stock_quantity` (không dùng, luôn 0) lọt ra API / cache sách qua `SELECT b.*` → `Book.js` liệt kê cột; cột vẫn giữ trong DB | `e69bb45` |
 | B36 Kiểm tra đầu vào rải rác trong controller → gom hết vào lược đồ Zod (`withChecks`), giữ nguyên văn câu báo lỗi; controller chỉ còn luật nghiệp vụ. Đặt hàng + hồ sơ `dea695a`, sách `e5fd851`, còn lại `9b825ba` |  `9b825ba` |
+| B80 Kết nối BullMQ tới Upstash tắt kiểm chứng chỉ TLS (`rejectUnauthorized: false`) → bật kiểm tra | `f3e75f0` |
+| B81 Redis chết thì thêm job email treo vô hạn (request quên mật khẩu treo, nhánh gửi trực tiếp không chạy) → chờ sẵn sàng tối đa 3 giây rồi gửi trực tiếp | `f3e75f0` |
+| B82 Job email chứa token đặt lại mật khẩu gốc, job lỗi nằm lại trong Redis nhiều ngày, log in email → `removeOnFail: true`, log không in email | `f3e75f0` |
