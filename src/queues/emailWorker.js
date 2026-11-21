@@ -14,7 +14,7 @@ function startEmailWorker() {
     
     emailWorker = new Worker('emailQueue', async (job) => {
         const { toEmail, resetToken, userName } = job.data;
-        console.log(`✉️ [Worker] Đang xử lý job ${job.id} (${job.name}) gửi tới: ${toEmail}`);
+        console.log(`✉️ [Worker] Đang xử lý job ${job.id} (${job.name})`); // log không in email (B82)
         
         if (job.name === 'sendResetPassword') {
             await EmailService.sendResetPasswordEmail(toEmail, resetToken, userName);
@@ -28,7 +28,7 @@ function startEmailWorker() {
 
     // Lắng nghe sự kiện để ghi log và giám sát
     emailWorker.on('completed', (job) => {
-        console.log(`✅ [Worker] Job ${job.id} (${job.name}) gửi thành công tới ${job.data.toEmail}.`);
+        console.log(`✅ [Worker] Job ${job.id} (${job.name}) gửi thành công.`);
     });
 
     emailWorker.on('failed', (job, err) => {

@@ -14,8 +14,9 @@ if (process.env.REDIS_URL) {
             port: parseInt(redisUrl.port || '6379'),
             username: redisUrl.username || undefined,
             password: redisUrl.password || undefined,
-            tls: redisUrl.protocol === 'rediss:' ? { rejectUnauthorized: false } : undefined,
-            maxRetriesPerRequest: null // Yêu cầu bắt buộc của BullMQ để tránh lỗi kết nối lặp
+            // rediss:// (Upstash) → TLS CÓ kiểm chứng chỉ (B80: trước đây tắt kiểm tra → có thể bị giả mạo máy chủ)
+            tls: redisUrl.protocol === 'rediss:' ? {} : undefined,
+            maxRetriesPerRequest: null // Bắt buộc với Worker của BullMQ (Queue ghi đè, xem emailQueue.js)
         };
         
         console.log(`ℹ️ BullMQ Connection: Đã cấu hình kết nối tới Redis Host: ${redisUrl.hostname}:${redisUrl.port || 6379} (SSL: ${redisUrl.protocol === 'rediss:'})`);
