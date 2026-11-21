@@ -108,3 +108,4 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | B74 Sách chưa có dòng kho tự tạo 10 cuốn ảo → mặc định 0 (chủ dự án chốt 20/11/2026), `Inventory.lockRow` | `c7e380e` |
 | B77 Tạo / sửa sách không transaction, xoá cache sau khi đã trả response → `BookService` bọc `BEGIN/COMMIT`, xoá cache sau COMMIT và trước response; mã danh mục sai → 400 | `21e4c4c` |
 | B78(b) Cache sách chứa tồn kho nên mỗi đơn hàng / chỉnh kho xoá toàn bộ `books:*` → cache không chứa tồn kho, ghép tồn kho mới bằng `Inventory.getDisplayStock` khi đọc | `9bff335` |
+| B79 Cột cũ `books.stock_quantity` (không dùng, luôn 0) lọt ra API / cache sách qua `SELECT b.*` → `Book.js` liệt kê cột; cột vẫn giữ trong DB | `e69bb45` |
