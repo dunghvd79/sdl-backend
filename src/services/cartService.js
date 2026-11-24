@@ -1,3 +1,4 @@
+const pool = require('../config/database');
 const Cart = require('../models/Cart');
 const Inventory = require('../models/Inventory');
 const Book = require('../models/Book');
@@ -31,25 +32,38 @@ class CartService {
         return item;
     }
 
-    // Thêm nhiều sách vào giỏ cùng lúc (Batch add)
+    // Thêm nhiều sách vào giỏ cùng lúc ("Mua lại" đơn cũ). B85: tất cả hoặc không món nào —
+    // kiểm tra HẾT các món trước (đọc cả lô bằng một câu SQL), rồi mới ghi trong một transaction.
     static async addBatchToCart(userId, items) {
-        const cart = await this.getOrCreateCart(userId);
-        const results = [];
-        
-        for (const item of items) {
-            const { bookId, quantity } = item;
-            if (!bookId || !quantity) continue;
-            
-            const book = await Book.findById(bookId);
+        const wanted = items.filter(item => item.bookId && item.quantity); // mã sách giải mã lỗi → bỏ qua như trước
+        if (wanted.length === 0) return [];
+
+        const books = await Book.findForCart(wanted.map(item => Number(item.bookId)));
+        for (const { bookId, quantity } of wanted) {
+            const book = books.get(Number(bookId));
             if (!book) throw new AppError(`Không tìm thấy cuốn sách có ID ${bookId}`, 400);
-            
-            const isAvailable = await Inventory.checkAvailability(bookId, quantity);
-            if (!isAvailable) throw new AppError(`Số lượng sách "${book.title}" trong kho không đủ để đáp ứng`, 400);
-            
-            const addedItem = await Cart.addItem(cart.id, bookId, quantity, book.price);
-            results.push(addedItem);
+            if (book.sellable_qty < quantity) {
+                throw new AppError(`Số lượng sách "${book.title}" trong kho không đủ để đáp ứng`, 400);
+            }
         }
-        return results;
+
+        const cart = await this.getOrCreateCart(userId);
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const results = [];
+            for (const { bookId, quantity } of wanted) {
+                const book = books.get(Number(bookId));
+                results.push(await Cart.addItem(cart.id, book.id, quantity, book.price, client));
+            }
+            await client.query('COMMIT');
+            return results;
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
     }
 
     // Lấy thông tin giỏ hàng

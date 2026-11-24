@@ -45,8 +45,8 @@ class Cart {
         return result.rows[0];
     }
 
-    // Thêm sách vào giỏ
-    static async addItem(cartId, bookId, quantity, price) {
+    // Thêm sách vào giỏ. `executor`: client của transaction bên gọi (mặc định pool).
+    static async addItem(cartId, bookId, quantity, price, executor = pool) {
         const query = `
       INSERT INTO cart_items (cart_id, book_id, quantity, price_at_add)
       VALUES ($1, $2, $3, $4)
@@ -54,7 +54,7 @@ class Cart {
       DO UPDATE SET quantity = cart_items.quantity + $3 -- Nếu sách đã có trong giỏ, chỉ cộng dồn số lượng
       RETURNING *
     `;
-        const result = await pool.query(query, [cartId, bookId, quantity, price]);
+        const result = await executor.query(query, [cartId, bookId, quantity, price]);
         return result.rows[0];
     }
 

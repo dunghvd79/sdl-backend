@@ -84,6 +84,20 @@ class Book {
         return result.rows[0] || null;
     }
 
+    // Tên, giá và số còn bán được của nhiều sách trong MỘT câu (B85: thay vì findById + checkAvailability từng món).
+    // Trả Map id → { id, title, price, sellable_qty }; sách không tồn tại thì không có trong Map.
+    static async findForCart(bookIds) {
+        const { rows } = await pool.query(
+            `SELECT b.id, b.title, b.price,
+                    COALESCE(i.available_qty, 0) - COALESCE(i.reserved_qty, 0) AS sellable_qty
+             FROM books b
+             LEFT JOIN inventory i ON i.book_id = b.id
+             WHERE b.id = ANY($1::int[])`,
+            [bookIds]
+        );
+        return new Map(rows.map(row => [row.id, row]));
+    }
+
     // 2. Thêm danh mục cho sách (Lưu vào bảng trung gian N:M)
     static async addCategory(bookId, categoryId, executor = pool) {
         const query = `

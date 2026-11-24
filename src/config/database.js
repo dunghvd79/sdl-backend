@@ -483,6 +483,21 @@ if (process.env.NODE_ENV !== 'test') pool.query('SELECT NOW()', async (err, res)
         } catch (invErr) {
             console.error('❌ Migration inventory_qty_check gặp lỗi (dữ liệu kho cũ vi phạm?):', invErr.message);
         }
+
+        // B84: index cho mọi khoá ngoại (danh sách và lý do trong config/indexes.js). Từng câu riêng: bảng nào
+        // chưa có (vd bảng của AI service) thì chỉ ghi log, các index khác vẫn được tạo. Bảng còn nhỏ nên
+        // CREATE INDEX thường (khoá ghi trong vài mili-giây) là đủ, không cần CONCURRENTLY.
+        const { FK_INDEXES, createIndexSql } = require('./indexes');
+        let fkIndexFailures = 0;
+        for (const index of FK_INDEXES) {
+            try {
+                await pool.query(createIndexSql(index));
+            } catch (idxErr) {
+                fkIndexFailures++;
+                console.error(`❌ Migration index ${index.name} gặp lỗi:`, idxErr.message);
+            }
+        }
+        console.log(`✅ Migration: Đã kiểm tra/tạo ${FK_INDEXES.length - fkIndexFailures}/${FK_INDEXES.length} index khoá ngoại.`);
     }
 });
 

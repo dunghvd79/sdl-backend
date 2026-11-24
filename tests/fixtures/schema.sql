@@ -1450,3 +1450,23 @@ CREATE TABLE IF NOT EXISTS public.refresh_tokens (
 );
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON public.refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON public.refresh_tokens(family_id);
+
+--
+-- B84: index cho mọi khoá ngoại — khớp với src/config/indexes.js (migration trong src/config/database.js)
+--
+
+CREATE INDEX IF NOT EXISTS idx_book_categories_category_id ON public.book_categories (category_id);
+CREATE INDEX IF NOT EXISTS idx_book_images_book_id ON public.book_images (book_id);
+CREATE INDEX IF NOT EXISTS idx_cart_items_book_id ON public.cart_items (book_id);
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_book_id ON public.chat_sessions (book_id);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_book_id ON public.document_chunks (book_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_transactions_book_id ON public.inventory_transactions (book_id);
+CREATE INDEX IF NOT EXISTS idx_messages_session_id ON public.messages (session_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications (user_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_book_id ON public.order_items (book_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON public.order_items (order_id);
+CREATE INDEX IF NOT EXISTS idx_orders_coupon_id ON public.orders (coupon_id);
+CREATE INDEX IF NOT EXISTS idx_payments_order_id ON public.payments (order_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_user_id ON public.reviews (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_coupons_coupon_id ON public.user_coupons (coupon_id);
+CREATE INDEX IF NOT EXISTS idx_wishlists_book_id ON public.wishlists (book_id);
