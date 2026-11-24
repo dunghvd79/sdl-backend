@@ -63,6 +63,16 @@ describe('sách bị ẩn sau khi đã nằm trong giỏ', () => {
         return { ...customer, b };
     }
 
+    test('GET /cart trả trạng thái từng sách để giao diện hiện "Ngừng bán"', async () => {
+        const { auth } = await cartWithHiddenBook();
+
+        const res = await request(app).get('/api/cart').set(auth);
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.items.map(i => [i.book.title, i.book.status]).sort())
+            .toEqual([['Sach A', 'PUBLISHED'], ['Sach B', 'HIDDEN']]);
+    });
+
     test('/cart/checkout → 400 kèm tên sách', async () => {
         const { auth } = await cartWithHiddenBook();
 

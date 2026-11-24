@@ -20,6 +20,7 @@ class Cart {
                   'author', b.author,
                   'price', b.price,
                   'cover_url', b.cover_url,
+                  'status', b.status, -- B86: giao diện hiện "Ngừng bán" cho sách nháp / đã ẩn
                   'stock', COALESCE(inv.available_qty - inv.reserved_qty, 0)
                 )
               )
