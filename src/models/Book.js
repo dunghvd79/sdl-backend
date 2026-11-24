@@ -36,21 +36,30 @@ class Book {
     // Thay toàn bộ danh mục của sách (gọi trong transaction: mã danh mục sai → lỗi FK → ROLLBACK cả lần sửa).
     static async replaceCategories(bookId, categoryIds, executor = pool) {
         await executor.query('DELETE FROM book_categories WHERE book_id = $1', [bookId]);
-        for (const categoryId of categoryIds) {
-            await this.addCategory(bookId, categoryId, executor);
-        }
+        await this.addCategories(bookId, categoryIds, executor);
     }
 
-    // Thêm ảnh chi tiết phụ (bỏ qua phần tử không có image_url).
+    // Nối sách với nhiều danh mục trong MỘT câu (B85); mã trùng / đã nối thì bỏ qua.
+    // Mã danh mục không tồn tại → lỗi khoá ngoại book_categories_category_id_fkey (controller trả 400).
+    static async addCategories(bookId, categoryIds, executor = pool) {
+        if (!categoryIds || categoryIds.length === 0) return;
+        await executor.query(
+            `INSERT INTO book_categories (book_id, category_id)
+             SELECT $1::int, category_id FROM unnest($2::int[]) AS category_id
+             ON CONFLICT DO NOTHING`,
+            [bookId, categoryIds]
+        );
+    }
+
+    // Thêm ảnh chi tiết phụ trong MỘT câu (B85); bỏ qua phần tử không có image_url.
     static async addImages(bookId, images, executor = pool) {
-        for (const img of images) {
-            if (img.image_url) {
-                await executor.query(
-                    'INSERT INTO book_images (book_id, image_url, display_order) VALUES ($1, $2, $3)',
-                    [bookId, img.image_url, parseInt(img.display_order) || 0]
-                );
-            }
-        }
+        const valid = images.filter(img => img.image_url);
+        if (valid.length === 0) return;
+        await executor.query(
+            `INSERT INTO book_images (book_id, image_url, display_order)
+             SELECT $1::int, image_url, display_order FROM unnest($2::text[], $3::int[]) AS t(image_url, display_order)`,
+            [bookId, valid.map(img => img.image_url), valid.map(img => parseInt(img.display_order) || 0)]
+        );
     }
 
     // Thay toàn bộ ảnh chi tiết phụ của sách.
@@ -84,11 +93,12 @@ class Book {
         return result.rows[0] || null;
     }
 
-    // Tên, giá và số còn bán được của nhiều sách trong MỘT câu (B85: thay vì findById + checkAvailability từng món).
-    // Trả Map id → { id, title, price, sellable_qty }; sách không tồn tại thì không có trong Map.
+    // Tên, giá, trạng thái và số còn bán được của nhiều sách trong MỘT câu (B85: thay vì findById +
+    // checkAvailability từng món). Trả Map id → { id, title, price, status, sellable_qty }; sách không tồn tại thì
+    // không có trong Map.
     static async findForCart(bookIds) {
         const { rows } = await pool.query(
-            `SELECT b.id, b.title, b.price,
+            `SELECT b.id, b.title, b.price, b.status,
                     COALESCE(i.available_qty, 0) - COALESCE(i.reserved_qty, 0) AS sellable_qty
              FROM books b
              LEFT JOIN inventory i ON i.book_id = b.id
@@ -98,16 +108,13 @@ class Book {
         return new Map(rows.map(row => [row.id, row]));
     }
 
-    // 2. Thêm danh mục cho sách (Lưu vào bảng trung gian N:M)
-    static async addCategory(bookId, categoryId, executor = pool) {
-        const query = `
-      INSERT INTO book_categories (book_id, category_id)
-      VALUES ($1, $2)
-      ON CONFLICT DO NOTHING -- Tránh lỗi nếu đã có sẵn
-      RETURNING *
-    `;
-        const result = await executor.query(query, [bookId, categoryId]);
-        return result.rows[0];
+    // Sách KHÔNG bán được (nháp / đã ẩn) trong danh sách, theo id tăng dần (B86). Gọi trong transaction đặt hàng.
+    static async findNotForSale(bookIds, executor = pool) {
+        const { rows } = await executor.query(
+            "SELECT id, title FROM books WHERE id = ANY($1::int[]) AND status <> 'PUBLISHED' ORDER BY id",
+            [bookIds]
+        );
+        return rows;
     }
 
     // 3. Lấy danh sách sách (Có phân trang và tìm kiếm cơ bản, lọc danh mục, sắp xếp)

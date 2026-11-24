@@ -71,27 +71,15 @@ class Category {
     static async assignBooks(categoryId, bookIds) {
         if (!Array.isArray(bookIds) || bookIds.length === 0) return [];
         
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-            const inserted = [];
-            for (const bookId of bookIds) {
-                const res = await client.query(`
-                    INSERT INTO book_categories (book_id, category_id)
-                    VALUES ($1, $2)
-                    ON CONFLICT DO NOTHING
-                    RETURNING book_id, category_id
-                `, [bookId, categoryId]);
-                if (res.rows[0]) inserted.push(res.rows[0]);
-            }
-            await client.query('COMMIT');
-            return inserted;
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
-        }
+        // MỘT câu cho cả lô (B85) — tự nó đã nguyên tử: một mã sách sai thì không gán sách nào.
+        // Trả các liên kết MỚI (đã có / mã lặp thì bỏ qua).
+        const { rows } = await pool.query(`
+            INSERT INTO book_categories (book_id, category_id)
+            SELECT book_id, $2::int FROM unnest($1::int[]) AS book_id
+            ON CONFLICT DO NOTHING
+            RETURNING book_id, category_id
+        `, [bookIds, categoryId]);
+        return rows;
     }
 
     // Gỡ sách khỏi thể loại này

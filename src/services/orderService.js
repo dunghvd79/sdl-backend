@@ -5,7 +5,9 @@ const Cart = require('../models/Cart');
 const pool = require('../config/database');
 const Coupon = require('../models/Coupon');
 const Inventory = require('../models/Inventory');
+const Book = require('../models/Book');
 const AppError = require('../utils/AppError');
+const { notForSaleError } = require('../utils/bookSale');
 const Payment = require('../models/Payment');
 const crypto = require('crypto');
 const { ORDER_STATUS_LABELS, isValidStatus, canTransition } = require('../utils/orderStatus');
@@ -39,6 +41,10 @@ class OrderService {
             if (!itemsToOrder || itemsToOrder.length === 0) {
                 throw new AppError('Không có sản phẩm nào được chọn để thanh toán!', 400);
             }
+
+            // B86: sách bị ẩn / chuyển về nháp sau khi khách đã cho vào giỏ → không đặt được (giỏ giữ nguyên)
+            const [notForSale] = await Book.findNotForSale(itemsToOrder.map(item => item.bookId), client);
+            if (notForSale) throw notForSaleError(notForSale.title);
 
             // 2. Tính tổng tiền của cả đơn hàng
             let totalAmount = 0;

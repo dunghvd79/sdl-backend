@@ -28,9 +28,7 @@ class BookService {
     static async createBook(bookData, categoryIds = [], images = []) {
         return inBookTransaction(async (client) => {
             const book = await Book.create(bookData, client);
-            for (const categoryId of categoryIds || []) {
-                await Book.addCategory(book.id, categoryId, client);
-            }
+            await Book.addCategories(book.id, categoryIds, client);
             if (Array.isArray(images)) await Book.addImages(book.id, images, client);
             return book;
         });

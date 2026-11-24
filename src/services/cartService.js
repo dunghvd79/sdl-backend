@@ -3,6 +3,7 @@ const Cart = require('../models/Cart');
 const Inventory = require('../models/Inventory');
 const Book = require('../models/Book');
 const AppError = require('../utils/AppError');
+const { assertForSale } = require('../utils/bookSale');
 
 class CartService {
     // Lấy hoặc tạo mới giỏ hàng cho User
@@ -22,6 +23,7 @@ class CartService {
         // 2. Kiểm tra sách có tồn tại không
         const book = await Book.findById(bookId);
         if (!book) throw new AppError('Không tìm thấy cuốn sách này', 400);
+        assertForSale(book); // B86: sách nháp / đã ẩn
 
         // 3. Kiểm tra Tồn kho xem còn đủ không
         const isAvailable = await Inventory.checkAvailability(bookId, quantity);
@@ -42,6 +44,7 @@ class CartService {
         for (const { bookId, quantity } of wanted) {
             const book = books.get(Number(bookId));
             if (!book) throw new AppError(`Không tìm thấy cuốn sách có ID ${bookId}`, 400);
+            assertForSale(book); // B86
             if (book.sellable_qty < quantity) {
                 throw new AppError(`Số lượng sách "${book.title}" trong kho không đủ để đáp ứng`, 400);
             }
@@ -101,11 +104,13 @@ class CartService {
             throw new AppError('Vui lòng chọn ít nhất một sản phẩm để thanh toán', 400);
         }
 
-        // Chỉ kiểm tra tồn kho xem còn đủ không chứ KHÔNG giữ kho sớm (tránh rò rỉ)
+        // Chỉ kiểm tra (sách còn bán, kho còn đủ) chứ KHÔNG giữ kho sớm (tránh rò rỉ).
+        // B85: đọc cả lô bằng một câu SQL; B86: sách bị ẩn sau khi khách đã cho vào giỏ.
+        const books = await Book.findForCart(itemsToCheck.map(item => item.bookId));
         for (const item of itemsToCheck) {
-            const isAvailable = await Inventory.checkAvailability(item.bookId, item.quantity);
-            if (!isAvailable) {
-                const book = await Book.findById(item.bookId);
+            const book = books.get(item.bookId);
+            if (book) assertForSale(book);
+            if (!book || book.sellable_qty < item.quantity) {
                 const title = book ? `"${book.title}"` : `ID #${item.bookId}`;
                 throw new AppError(`Sách ${title} trong kho không đủ để đáp ứng`, 400);
             }
