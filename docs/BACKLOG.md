@@ -115,3 +115,5 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | B80 Kết nối BullMQ tới Upstash tắt kiểm chứng chỉ TLS (`rejectUnauthorized: false`) → bật kiểm tra | `f3e75f0` |
 | B81 Redis chết thì thêm job email treo vô hạn (request quên mật khẩu treo, nhánh gửi trực tiếp không chạy) → chờ sẵn sàng tối đa 3 giây rồi gửi trực tiếp | `f3e75f0` |
 | B82 Job email chứa token đặt lại mật khẩu gốc, job lỗi nằm lại trong Redis nhiều ngày, log in email → `removeOnFail: true`, log không in email | `f3e75f0` |
+| B84 15 khoá ngoại không có index (Postgres không tự tạo) → subquery `json_agg` theo từng dòng cha quét cả bảng con → index cho mọi khoá ngoại (`src/config/indexes.js`), test `db.fk-indexes` chặn quên | `cb42a63` |
+| B85 (phần `addBatchToCart`) "Mua lại": món sau lỗi vẫn để lại các món trước trong giỏ; 3 câu SQL mỗi món → đọc cả lô một câu, ghi trong một transaction | `cb42a63` |
