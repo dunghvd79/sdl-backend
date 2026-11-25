@@ -117,3 +117,4 @@ Mức độ: 🔴 bảo mật/mất dữ liệu · 🟠 lỗi nghiệp vụ · �
 | B85 (phần `addBatchToCart`) "Mua lại": món sau lỗi vẫn để lại các món trước trong giỏ; 3 câu SQL mỗi món → đọc cả lô một câu, ghi trong một transaction | `cb42a63` |
 | B85 (phần còn lại) Ghi theo vòng một câu SQL mỗi phần tử → `prepareCheckout` kiểm kho cả giỏ một câu; `Category.assignBooks`, `Book.addCategories` / `addImages` một `INSERT ... unnest` | `4fbb504` |
 | B86 Sách nháp / đã ẩn vẫn thêm vào giỏ và đặt được → chặn khi thêm giỏ, `/cart/checkout` và trong transaction `/orders/checkout` (sách bị ẩn sau khi đã nằm trong giỏ; giỏ giữ nguyên) | `4fbb504` |
+| B87 Phân trang sách: thứ tự không cố định khi trùng giá / trùng `created_at` (sách lặp hoặc mất giữa hai trang), trang cuối đủ 8 cuốn vẫn bật nút "Sau" rồi dội về trang 1, số trang không nằm trên URL → `ORDER BY ..., b.id`; API trả `has_more` (lấy `limit + 1`); trang chủ đưa trang + bộ lọc lên URL | `c6ce57a` (backend), frontend `8387bbb` |
