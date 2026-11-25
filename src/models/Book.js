@@ -189,19 +189,21 @@ class Book {
             query += ` WHERE ${whereConditions.join(' AND ')}`;
         }
 
-        // Sắp xếp
+        // Sắp xếp. Mọi kiểu đều kết thúc bằng b.id (B87): giá / thời điểm tạo có thể trùng nhau, khi đó Postgres
+        // được phép trả các dòng trùng theo thứ tự bất kỳ, khác nhau giữa hai câu LIMIT/OFFSET → một cuốn hiện ở
+        // hai trang, cuốn khác không bao giờ hiện. Trùng thì sách tạo sau đứng trước (trừ "cũ nhất").
         if (sortBy === 'oldest') {
-            query += ` ORDER BY b.created_at ASC`;
+            query += ` ORDER BY b.created_at ASC, b.id ASC`;
         } else if (sortBy === 'price_asc') {
-            query += ` ORDER BY b.price ASC`;
+            query += ` ORDER BY b.price ASC, b.id DESC`;
         } else if (sortBy === 'price_desc') {
-            query += ` ORDER BY b.price DESC`;
+            query += ` ORDER BY b.price DESC, b.id DESC`;
         } else if (tsQuery) {
             // Ưu tiên độ tương đồng (ranking) khi tìm kiếm, sau đó mới tới thứ tự hiển thị và thời gian tạo
-            query += ` ORDER BY ts_rank(to_tsvector('simple', immutable_unaccent(b.title) || ' ' || immutable_unaccent(b.author) || ' ' || immutable_unaccent(COALESCE(b.description, ''))), to_tsquery('simple', immutable_unaccent($${params.indexOf(tsQuery) + 1}))) DESC, b.display_order DESC, b.created_at DESC`;
+            query += ` ORDER BY ts_rank(to_tsvector('simple', immutable_unaccent(b.title) || ' ' || immutable_unaccent(b.author) || ' ' || immutable_unaccent(COALESCE(b.description, ''))), to_tsquery('simple', immutable_unaccent($${params.indexOf(tsQuery) + 1}))) DESC, b.display_order DESC, b.created_at DESC, b.id DESC`;
         } else {
             // newest is default: prioritize display_order first, then newest created_at
-            query += ` ORDER BY b.display_order DESC, b.created_at DESC`;
+            query += ` ORDER BY b.display_order DESC, b.created_at DESC, b.id DESC`;
         }
 
         params.push(limit, offset);

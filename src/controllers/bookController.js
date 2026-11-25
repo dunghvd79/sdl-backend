@@ -55,12 +55,15 @@ class BookController {
                 return res.status(200).json({ ...cachedData, data: await withLiveStock(cachedData.data) });
             }
 
-            const books = await BookService.getBooks({ limit, offset, search, categoryId, sortBy, maxPrice, adminMode, isFeatured });
+            // Lấy dư 1 dòng để biết còn trang sau mà không cần COUNT(*) (B87)
+            const rows = await BookService.getBooks({ limit: limit + 1, offset, search, categoryId, sortBy, maxPrice, adminMode, isFeatured });
+            const hasMore = rows.length > limit;
+            const books = hasMore ? rows.slice(0, limit) : rows;
 
             const responseData = {
                 message: 'Lấy danh sách thành công',
                 data: books.map(book => ({ ...book, hashId: encodeBookId(book.id) })),
-                pagination: { page, limit, total_in_page: books.length }
+                pagination: { page, limit, total_in_page: books.length, has_more: hasMore }
             };
 
             await setCache(cacheKey, { ...responseData, data: responseData.data.map(withoutStock) }, 3600);

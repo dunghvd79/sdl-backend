@@ -45,8 +45,8 @@ class AdminController {
             }
 
             query += ` GROUP BY o.id, o.total_amount, o.status, o.created_at, o.payment_method, o.shipping_name, o.shipping_phone, o.shipping_address, o.shipping_notes, o.discount_amount, o.cancel_reason, c.code, u.email, u.full_name`;
-            query += ` ORDER BY o.created_at DESC`;
-            
+            query += ` ORDER BY o.created_at DESC, o.id DESC`; // id: thứ tự cố định khi phân trang (B87)
+
             params.push(limit, offset);
             query += ` LIMIT $${params.length - 1} OFFSET $${params.length}`;
 

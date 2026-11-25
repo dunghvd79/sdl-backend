@@ -53,7 +53,7 @@ class Article {
         }
 
         // Sắp xếp bài viết: bài viết được ghim lên đầu trang, sau đó theo thời gian giảm dần
-        query += ' ORDER BY is_featured DESC, created_at DESC';
+        query += ' ORDER BY is_featured DESC, created_at DESC, id DESC'; // id: thứ tự cố định khi phân trang (B87)
 
         // Phân trang
         params.push(limit, offset);
