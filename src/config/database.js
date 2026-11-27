@@ -42,63 +42,25 @@ if (process.env.NODE_ENV !== 'test') pool.query('SELECT NOW()', async (err, res)
             console.error('❌ Migration book_images gặp lỗi:', imgTableErr.message);
         }
         
-        // Tự động chạy Migration bổ sung ràng buộc UNIQUE cho cart_items nếu chưa có
-        try {
-            await pool.query(`
-                ALTER TABLE cart_items 
-                ADD CONSTRAINT unique_cart_book UNIQUE (cart_id, book_id);
-            `);
-            console.log('✅ Migration: Đã thêm ràng buộc UNIQUE (cart_id, book_id) thành công.');
-        } catch (migErr) {
-            if (migErr.code === '42P16' || migErr.code === '42710' || migErr.message.includes('already exists')) {
-                console.log('ℹ️ Migration: Ràng buộc UNIQUE cho cart_items đã tồn tại. Bỏ qua.');
-            } else {
-                console.error('❌ Migration gặp lỗi:', migErr.message);
-            }
-        }
+        // B88: đã bỏ các câu `ADD CONSTRAINT unique_cart_book / unique_inventory_book / unique_coupons_code`: bảng đã
+        // có UNIQUE gốc từ schema (cart_items(cart_id, book_id), inventory PK(book_id), coupons(code)), các câu này
+        // chỉ tạo index thứ hai y hệt. Bản thừa trên DB cũ được xoá ở cuối (dropDuplicateIndexSql).
 
-        // Tự động chạy Migration bổ sung ràng buộc UNIQUE cho inventory(book_id) nếu chưa có
+        // Dọn mã giảm giá trùng (khác nhau chỉ ở hoa / thường), giữ bản có id nhỏ nhất
         try {
-            await pool.query(`
-                ALTER TABLE inventory 
-                ADD CONSTRAINT unique_inventory_book UNIQUE (book_id);
-            `);
-            console.log('✅ Migration: Đã thêm ràng buộc UNIQUE (book_id) cho bảng inventory thành công.');
-        } catch (migErr) {
-            if (migErr.code === '42P16' || migErr.code === '42710' || migErr.message.includes('already exists') || migErr.message.includes('already a unique constraint')) {
-                console.log('ℹ️ Migration: Ràng buộc UNIQUE cho inventory(book_id) đã tồn tại. Bỏ qua.');
-            } else {
-                console.error('❌ Migration inventory UNIQUE gặp lỗi:', migErr.message);
-            }
-        }
-
-        // Tự động chạy Migration bổ sung ràng buộc UNIQUE cho coupons(code) nếu chưa có
-        try {
-            // Bước 1: Dọn dẹp bản ghi trùng lặp trước (chỉ giữ lại bản ghi id nhỏ nhất cho mỗi code)
             const cleanCouponsRes = await pool.query(`
-                DELETE FROM coupons 
+                DELETE FROM coupons
                 WHERE id NOT IN (
-                    SELECT MIN(id) 
-                    FROM coupons 
+                    SELECT MIN(id)
+                    FROM coupons
                     GROUP BY UPPER(code)
                 );
             `);
             if (cleanCouponsRes.rowCount > 0) {
                 console.log(`✅ Migration: Đã dọn dẹp ${cleanCouponsRes.rowCount} mã giảm giá bị trùng lặp.`);
             }
-
-            // Bước 2: Thêm ràng buộc UNIQUE
-            await pool.query(`
-                ALTER TABLE coupons 
-                ADD CONSTRAINT unique_coupons_code UNIQUE (code);
-            `);
-            console.log('✅ Migration: Đã thêm ràng buộc UNIQUE (code) cho bảng coupons thành công.');
         } catch (migErr) {
-            if (migErr.code === '42P16' || migErr.code === '42710' || migErr.message.includes('already exists') || migErr.message.includes('already a unique constraint')) {
-                console.log('ℹ️ Migration: Ràng buộc UNIQUE cho coupons(code) đã tồn tại. Bỏ qua.');
-            } else {
-                console.error('❌ Migration coupons UNIQUE gặp lỗi:', migErr.message);
-            }
+            console.error('❌ Migration dọn mã giảm giá trùng gặp lỗi:', migErr.message);
         }
 
         // Tự động kiểm tra cấu trúc bảng orders và cập nhật các dòng có created_at bị NULL về thời gian hiện tại
@@ -392,12 +354,7 @@ if (process.env.NODE_ENV !== 'test') pool.query('SELECT NOW()', async (err, res)
                     console.log(`✅ Migration reviews: Đã dọn dẹp ${cleanReviewsRes.rowCount} đánh giá bị trùng lặp.`);
                 }
 
-                // Thêm ràng buộc UNIQUE nếu chưa có
-                await pool.query(`
-                    ALTER TABLE reviews 
-                    ADD CONSTRAINT unique_book_user_review UNIQUE (book_id, user_id);
-                `);
-                console.log('✅ Migration reviews: Đã đảm bảo ràng buộc UNIQUE (book_id, user_id) cho bảng reviews.');
+                // B88: UNIQUE (book_id, user_id) đã có từ CREATE TABLE reviews — không thêm bản thứ hai
 
                 // Quét cập nhật các dòng đang bị NULL về thời gian hiện tại
                 const revUpdate = await pool.query(`
@@ -498,6 +455,17 @@ if (process.env.NODE_ENV !== 'test') pool.query('SELECT NOW()', async (err, res)
             }
         }
         console.log(`✅ Migration: Đã kiểm tra/tạo ${FK_INDEXES.length - fkIndexFailures}/${FK_INDEXES.length} index khoá ngoại.`);
+
+        // B88: xoá index trùng lặp — chỉ khi còn một index tương đương khác (xem config/indexes.js)
+        const { DUPLICATE_INDEXES, dropDuplicateIndexSql } = require('./indexes');
+        for (const index of DUPLICATE_INDEXES) {
+            try {
+                await pool.query(dropDuplicateIndexSql(index));
+            } catch (dupErr) {
+                console.error(`❌ Migration xoá index trùng ${index.name} gặp lỗi:`, dupErr.message);
+            }
+        }
+        console.log('✅ Migration: Đã kiểm tra/xoá index trùng lặp.');
     }
 });
 

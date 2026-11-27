@@ -27,4 +27,36 @@ function createIndexSql({ name, table, column }) {
     return `CREATE INDEX IF NOT EXISTS ${name} ON ${table} (${column})`;
 }
 
-module.exports = { FK_INDEXES, createIndexSql };
+// B88: index trùng lặp — bảng đã có UNIQUE gốc (01_init_schema.sql / 02_phase4_tables.sql) nhưng migration cũ vẫn
+// `ADD CONSTRAINT unique_*` cùng cột (Postgres chỉ báo lỗi khi trùng TÊN, không khi trùng cột) → hai index y hệt:
+// mỗi lần ghi cập nhật cả hai, đọc không lợi gì. `constraint`: là ràng buộc (DROP CONSTRAINT) hay index thường.
+const DUPLICATE_INDEXES = [
+    { table: 'cart_items', name: 'unique_cart_book', constraint: true },        // = cart_items_cart_id_book_id_key
+    { table: 'inventory', name: 'unique_inventory_book', constraint: true },    // = inventory_pkey (book_id)
+    { table: 'coupons', name: 'unique_coupons_code', constraint: true },        // = coupons_code_key
+    { table: 'reviews', name: 'unique_book_user_review', constraint: true },    // = reviews_book_id_user_id_key
+    { table: 'users', name: 'idx_users_email', constraint: false }              // = users_email_key
+];
+
+// Chỉ xoá khi CÒN một index khác trên đúng các cột đó (cùng thứ tự), và nếu bản bị xoá là UNIQUE thì bản còn lại
+// cũng phải UNIQUE → không bao giờ làm mất ràng buộc, kể cả trên DB mà bản gốc không tồn tại. Không có index → bỏ qua.
+function dropDuplicateIndexSql({ table, name, constraint }) {
+    const drop = constraint ? `ALTER TABLE ${table} DROP CONSTRAINT ${name}` : `DROP INDEX ${name}`;
+    return `
+        DO $$ BEGIN
+            IF EXISTS (
+                SELECT 1
+                FROM pg_index dup
+                JOIN pg_index other ON other.indrelid = dup.indrelid
+                                   AND other.indexrelid <> dup.indexrelid
+                                   AND other.indkey::text = dup.indkey::text
+                                   AND other.indexprs IS NULL AND other.indpred IS NULL
+                                   AND (other.indisunique OR NOT dup.indisunique)
+                WHERE dup.indexrelid = to_regclass('public.${name}')
+            ) THEN
+                ${drop};
+            END IF;
+        END $$`;
+}
+
+module.exports = { FK_INDEXES, createIndexSql, DUPLICATE_INDEXES, dropDuplicateIndexSql };

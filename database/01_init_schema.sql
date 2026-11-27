@@ -218,7 +218,7 @@ CREATE TABLE reviews (
 -- ==========================================
 -- 7. INDEXES & TIỆN ÍCH MỞ RỘNG (Tối ưu hóa)
 -- ==========================================
-CREATE INDEX idx_users_email ON users(email);
+-- (B88) Không tạo idx_users_email: email UNIQUE ở CREATE TABLE users đã có index; đăng nhập dùng LOWER(email)
 CREATE INDEX idx_orders_user_id ON orders(user_id);
 CREATE INDEX idx_chat_session_user ON chat_sessions(user_id);
 

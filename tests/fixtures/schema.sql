@@ -1090,36 +1090,8 @@ ALTER TABLE ONLY public.reviews
     ADD CONSTRAINT reviews_pkey PRIMARY KEY (id);
 
 
---
--- Name: reviews unique_book_user_review; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.reviews
-    ADD CONSTRAINT unique_book_user_review UNIQUE (book_id, user_id);
-
-
---
--- Name: cart_items unique_cart_book; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.cart_items
-    ADD CONSTRAINT unique_cart_book UNIQUE (cart_id, book_id);
-
-
---
--- Name: coupons unique_coupons_code; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.coupons
-    ADD CONSTRAINT unique_coupons_code UNIQUE (code);
-
-
---
--- Name: inventory unique_inventory_book; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.inventory
-    ADD CONSTRAINT unique_inventory_book UNIQUE (book_id);
+-- B88: đã bỏ 4 ràng buộc trùng unique_book_user_review, unique_cart_book, unique_coupons_code,
+-- unique_inventory_book (trùng cột với UNIQUE / PK gốc ở trên)
 
 
 --
@@ -1206,11 +1178,7 @@ CREATE INDEX idx_orders_status ON public.orders USING btree (status);
 CREATE INDEX idx_orders_user_id ON public.orders USING btree (user_id);
 
 
---
--- Name: idx_users_email; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_users_email ON public.users USING btree (email);
+-- B88: đã bỏ idx_users_email (trùng users_email_key)
 
 
 --
